@@ -14,3 +14,4 @@
 #include <chrono>
 #include <string>
 #include <memory>
+#include <numeric>

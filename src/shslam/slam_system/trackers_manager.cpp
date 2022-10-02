@@ -34,7 +34,7 @@ namespace shslam
         {
             std::vector<std::pair<cv::Matx33d, cv::Matx<double, 1, 5>>> mono_cams_params;
             std::vector<bool> want_visualizes;
-            printf("%d mono cameras will be used.\n", num_mono_cams);
+            printf("%ld mono cameras will be used.\n", num_mono_cams);
             for(auto i_th = 0; i_th<num_mono_cams; ++i_th)
             {
                 auto cam_mat_vec = std::move(config["mono_cameras"][i_th]["camera_matrix"].as<std::vector<double>>());
@@ -57,8 +57,8 @@ namespace shslam
     }
     
 
-    void shslam::SlamSystem::TrackersManager::AssociateBuffers(std::shared_ptr<shslam::RawDataBuffers> raw_data_buffers_ptr)
+    void shslam::SlamSystem::TrackersManager::AssociateBuffers(std::shared_ptr<shslam::InputBuffers> input_buffers_ptr, std::shared_ptr<shslam::OutputBuffers> output_buffers_ptr)
     {
-            mono_cams_tracker_ptr->AssociateBuffers(raw_data_buffers_ptr);
+            mono_cams_tracker_ptr->AssociateBuffers(input_buffers_ptr, output_buffers_ptr);
     }
 }

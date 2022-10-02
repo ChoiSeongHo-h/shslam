@@ -5,7 +5,7 @@ namespace shslam
 {
     struct NumSensors;
     
-    struct RawDataBuffers;
+    struct InputBuffers;
 
     class SlamSystem;
 }

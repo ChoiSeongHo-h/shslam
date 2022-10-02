@@ -11,7 +11,7 @@ namespace shslam
 
         void ApplyConfig(const YAML::Node& config);
 
-        void AssociateBuffers(std::shared_ptr<RawDataBuffers> raw_data_buffers_ptr);
+        void AssociateBuffers(std::shared_ptr<InputBuffers> input_buffers_ptr, std::shared_ptr<shslam::OutputBuffers> output_buffers_ptr);
 
 
     private:

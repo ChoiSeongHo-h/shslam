@@ -5,21 +5,26 @@
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam.hpp>
 #include <shslam/slam_system/common_info_manager.hpp>
-#include <shslam/slam_system/raw_data_buffers_manager.hpp>
+#include <shslam/slam_system/buffers_manager.hpp>
 
 namespace shslam
 {
     shslam::SlamSystem::SlamSystem() :
     trackers_manager_ptr{std::make_unique<shslam::SlamSystem::TrackersManager>()},
-    raw_data_buffers_manager_ptr{std::make_unique<shslam::SlamSystem::RawDataBuffersManager>()},
+    buffers_manager_ptr{std::make_unique<shslam::SlamSystem::BuffersManager>()},
     common_info_manager_ptr{std::make_unique<shslam::SlamSystem::CommonInfoManager>()}
     {
         cv::setUseOptimized(true);
     }
 
-    std::shared_ptr<shslam::RawDataBuffers> shslam::SlamSystem::GetRawDataBuffersPtr()
+    std::shared_ptr<shslam::InputBuffers> shslam::SlamSystem::GetInputBuffersPtr()
     {
-        return raw_data_buffers_manager_ptr->GetBuffersPtr();
+        return buffers_manager_ptr->GetInputBuffersPtr();
+    }
+
+    std::shared_ptr<shslam::OutputBuffers> shslam::SlamSystem::GetOutputBuffersPtr()
+    {
+        return buffers_manager_ptr->GetOutputBuffersPtr();
     }
 
     void shslam::SlamSystem::Run()
@@ -35,9 +40,10 @@ namespace shslam
         
         trackers_manager_ptr->ApplyConfig(config);
         common_info_manager_ptr->ApplyConfig(config);
-        raw_data_buffers_manager_ptr->Init(common_info_manager_ptr->GetNumSensorsPtr());
-        auto raw_data_buffers_ptr = raw_data_buffers_manager_ptr->GetBuffersPtr();
-        trackers_manager_ptr->AssociateBuffers(raw_data_buffers_ptr);
+        buffers_manager_ptr->Init(common_info_manager_ptr->GetNumSensorsPtr());
+        auto input_buffers_ptr = buffers_manager_ptr->GetInputBuffersPtr();
+        auto output_buffers_ptr = buffers_manager_ptr->GetOutputBuffersPtr();
+        trackers_manager_ptr->AssociateBuffers(input_buffers_ptr, output_buffers_ptr);
 
         printf("Complete initializing the system.\n\n");
     }

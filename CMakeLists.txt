@@ -16,6 +16,7 @@ endif()
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  image_transport
   cv_bridge
   tf
 )
@@ -38,7 +39,7 @@ add_executable(ros_app
   src/shslam/slam_system/trackers_manager/mono_cams_tracker.cpp
   src/shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam.cpp
   src/shslam/slam_system/common_info_manager.cpp
-  src/shslam/slam_system/raw_data_buffers_manager.cpp
+  src/shslam/slam_system/buffers_manager.cpp
 )
 
 add_dependencies(ros_app ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

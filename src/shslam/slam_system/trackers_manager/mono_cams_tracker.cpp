@@ -35,11 +35,12 @@ namespace shslam
             thread.join();
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::AssociateBuffers(std::shared_ptr<shslam::RawDataBuffers> raw_data_buffers_ptr)
+    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::AssociateBuffers(std::shared_ptr<shslam::InputBuffers> input_buffers_ptr, std::shared_ptr<shslam::OutputBuffers> output_buffers_ptr)
     {
         for(auto i_th = 0; i_th<mono_cam_ptrs.size(); ++i_th)
         {
-            mono_cam_ptrs[i_th]->img_buf_original_ptr = &raw_data_buffers_ptr->mono_imgs[i_th];
+            mono_cam_ptrs[i_th]->input_img_buf_ptr = &input_buffers_ptr->mono_imgs[i_th];
+            mono_cam_ptrs[i_th]->output_img_buf_ptr = &output_buffers_ptr->mono_imgs[i_th];
         }
     }
 }
