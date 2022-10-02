@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     ::raw_data_buffers_ptr = slam_system.GetRawDataBuffersPtr();
 
     auto subscriber_cam0 = node_handle.subscribe("/camera_array/cam0/image_raw/compressed", 10, CallbackImg0);
-    auto subscriber_cam1 = node_handle.subscribe("/camera_array/cam1/image_raw/compressed", 10, CallbackImg1);
+    //auto subscriber_cam1 = node_handle.subscribe("/camera_array/cam1/image_raw/compressed", 10, CallbackImg1);
     ros::spin();
 
     system_thread.join();

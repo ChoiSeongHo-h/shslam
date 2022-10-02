@@ -10,7 +10,6 @@
 namespace shslam
 {
     shslam::SlamSystem::SlamSystem() :
-    want_visualize{true},
     trackers_manager_ptr{std::make_unique<shslam::SlamSystem::TrackersManager>()},
     raw_data_buffers_manager_ptr{std::make_unique<shslam::SlamSystem::RawDataBuffersManager>()},
     common_info_manager_ptr{std::make_unique<shslam::SlamSystem::CommonInfoManager>()}
@@ -31,11 +30,15 @@ namespace shslam
     void shslam::SlamSystem::InitBy(const std::string& config_path)
     {
         printf("Start initializing the system.\n");
-        auto num_sensors = trackers_manager_ptr->ApplyConfig(config_path);
-        common_info_manager_ptr->SetNumSensors(num_sensors);
-        raw_data_buffers_manager_ptr->Init(num_sensors);
+
+        auto config = std::move(YAML::LoadFile(config_path));
+        
+        trackers_manager_ptr->ApplyConfig(config);
+        common_info_manager_ptr->ApplyConfig(config);
+        raw_data_buffers_manager_ptr->Init(common_info_manager_ptr->GetNumSensorsPtr());
         auto raw_data_buffers_ptr = raw_data_buffers_manager_ptr->GetBuffersPtr();
         trackers_manager_ptr->AssociateBuffers(raw_data_buffers_ptr);
+
         printf("Complete initializing the system.\n\n");
     }
 

@@ -3,8 +3,12 @@ namespace shslam
     class SlamSystem::CommonInfoManager
     {
     public:
+        CommonInfoManager();
+        
         std::shared_ptr<NumSensors> GetNumSensorsPtr() const;
-        void SetNumSensors(const std::shared_ptr<NumSensors> num_sensors_ptr);
+
+        void ApplyConfig(const YAML::Node& config);
+    
     private:
         std::shared_ptr<NumSensors> num_sensors_ptr;
     };

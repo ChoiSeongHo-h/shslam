@@ -4,36 +4,29 @@ mono_cameras:
 #  [fx, 0,  cx,
 #   0,  fy, cy,
 #   0,  0,  1  ]
-# (3*3 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
+#  # (3*3 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
 #  distortion_coefficient:
-#  [k1,
-#   k2,
-#   p1,
-#   p2,
-#   k3]
-# (5*1 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
+#  [k1, k2, p1, p2, k3]
+#  # (1*5 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
+#  want_to_visualize: true/false
+#  # boolean
 - camera_matrix:
   [1857.4752797615988, 0.0,                1039.692658811044,
    0.0,                1869.2155909761746, 739.3362262994145,
    0.0,                0.0,                1.0               ]
   distortion_coefficient:
-  [-3.0451652061637519e-01,
-   3.8894492749157322e-02,
-   1.0517466490567872e-03,
-   -5.5095449411338973e-04,
-   1.7054732639063463e-01]
+  [-3.0451652061637519e-01, 3.8894492749157322e-02, 1.0517466490567872e-03, -5.5095449411338973e-04, 1.7054732639063463e-01]
+  want_to_visualize: true
 - camera_matrix:
   [ 1814.75275617,  0.0,            1006.56038505, 
     0.0,            1818.77214155,  689.78092195,
     0.0,            0.0,            1.0           ]
   distortion_coefficient:
-  [-3.3667553856802590e-01,
-   2.2370191478408946e-01,
-   6.9364654936351162e-04,
-   6.5891956666038094e-04,
-   -1.4386286982166674e-01]
-#- camera_matrix: [...]
-#  distortion_coefficient: [...] ...
+  [-3.3667553856802590e-01, 2.2370191478408946e-01, 6.9364654936351162e-04, 6.5891956666038094e-04, -1.4386286982166674e-01]
+  want_to_visualize: true
+# - camera_matrix: [...]
+#   distortion_coefficient: [...] ...
+#   want_to_visualize: true
 
 #Parameters Part
 want_to_visualize: ture

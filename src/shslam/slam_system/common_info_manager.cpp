@@ -5,13 +5,17 @@
 
 namespace shslam
 {
+    shslam::SlamSystem::CommonInfoManager::CommonInfoManager() :
+    num_sensors_ptr{std::make_shared<shslam::NumSensors>()}
+    {}
+
     std::shared_ptr<shslam::NumSensors> shslam::SlamSystem::CommonInfoManager::GetNumSensorsPtr() const
     {
         return num_sensors_ptr;
     }
 
-    void shslam::SlamSystem::CommonInfoManager::SetNumSensors(std::shared_ptr<shslam::NumSensors> num_sensors_ptr)
+    void shslam::SlamSystem::CommonInfoManager::ApplyConfig(const YAML::Node& config)
     {
-        this->num_sensors_ptr = num_sensors_ptr;
+        this->num_sensors_ptr->mono_cams = config["mono_cameras"].size();
     }
 }

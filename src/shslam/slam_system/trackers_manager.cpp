@@ -21,39 +21,41 @@ namespace shslam
             thread.join();
     }
 
-    std::shared_ptr<shslam::NumSensors> shslam::SlamSystem::TrackersManager::ApplyConfig(const std::string& config_path)
+    void shslam::SlamSystem::TrackersManager::ApplyConfig(const YAML::Node& config)
     {
-        auto config = YAML::LoadFile(config_path);
-        std::shared_ptr<shslam::NumSensors> num_sensors_ptr = std::make_shared<shslam::NumSensors>();
-
         auto num_mono_cams = config["mono_cameras"].size();
         if(num_mono_cams < 1) // &&&&&&.....
         {
-            printf("Config file error. No sensor.\n");
-            return num_sensors_ptr;
+            printf("Tracker config error. No sensor.\n");
+            return;
         }
 
         if(num_mono_cams > 0)
         {
-            std::vector<std::pair<cv::Mat, cv::Mat>> mono_cams_config;
+            std::vector<std::pair<cv::Matx33d, cv::Matx<double, 1, 5>>> mono_cams_params;
+            std::vector<bool> want_visualizes;
             printf("%d mono cameras will be used.\n", num_mono_cams);
             for(auto i_th = 0; i_th<num_mono_cams; ++i_th)
             {
-                auto cam_mat_vec = config["mono_cameras"][i_th]["camera_matrix"].as<std::vector<double>>();
-                auto cam_mat_1d = cv::Mat1d(3, 3, cam_mat_vec.data());
+                auto cam_mat_vec = std::move(config["mono_cameras"][i_th]["camera_matrix"].as<std::vector<double>>());
+                auto kCamMat = std::move(cv::Matx33d(cam_mat_vec.data()));
 
-                auto dist_coeffs_vec = config["mono_cameras"][i_th]["distortion_coefficient"].as<std::vector<double>>();
-                auto dist_coeffs_1d = cv::Mat1d(5, 1, dist_coeffs_vec.data());
+                auto dist_coeffs_vec = std::move(config["mono_cameras"][i_th]["distortion_coefficient"].as<std::vector<double>>());
+                auto kDistCoeffs = std::move(cv::Matx<double, 1, 5>(dist_coeffs_vec.data()));
 
-                mono_cams_config.emplace_back(std::make_pair(cam_mat_1d.clone(), dist_coeffs_1d.clone()));
+                mono_cams_params.emplace_back(std::make_pair(kCamMat, kDistCoeffs));
+
+                auto want_visualize = config["mono_cameras"][i_th]["want_to_visualize"].as<bool>();
+                want_visualizes.emplace_back(want_visualize);
             }
-            mono_cams_tracker_ptr->ApplyConfig(mono_cams_config);
-            num_sensors_ptr->mono_cams = num_mono_cams;
+
+            mono_cams_tracker_ptr->ApplyConfig(mono_cams_params, want_visualizes);
         }
 
-        printf("Config file applying complete.\n\n");
-        return num_sensors_ptr;
+
+        printf("Tracker config complete.\n\n");
     }
+    
 
     void shslam::SlamSystem::TrackersManager::AssociateBuffers(std::shared_ptr<shslam::RawDataBuffers> raw_data_buffers_ptr)
     {
