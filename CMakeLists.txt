@@ -38,6 +38,7 @@ add_executable(ros_app
   src/shslam/slam_system/trackers_manager.cpp
   src/shslam/slam_system/trackers_manager/mono_cams_tracker.cpp
   src/shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam.cpp
+  src/shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam/ref_info.cpp
   src/shslam/slam_system/common_info_manager.cpp
   src/shslam/slam_system/buffers_manager.cpp
 )

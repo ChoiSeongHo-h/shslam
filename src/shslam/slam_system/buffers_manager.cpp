@@ -5,22 +5,22 @@
 
 namespace shslam
 {
-    shslam::SlamSystem::BuffersManager::BuffersManager() :
-    input_buffers_ptr{std::make_shared<shslam::InputBuffers>()},
-    output_buffers_ptr{std::make_shared<shslam::OutputBuffers>()}
+    SlamSystem::BuffersManager::BuffersManager() :
+    input_buffers_ptr(std::make_shared<InputBuffers>()),
+    output_buffers_ptr(std::make_shared<OutputBuffers>())
     {}
 
-    std::shared_ptr<shslam::InputBuffers> shslam::SlamSystem::BuffersManager::GetInputBuffersPtr()
+    std::shared_ptr<InputBuffers> SlamSystem::BuffersManager::GetInputBuffersPtr()
     {
         return input_buffers_ptr;
     }
 
-    std::shared_ptr<shslam::OutputBuffers> shslam::SlamSystem::BuffersManager::GetOutputBuffersPtr()
+    std::shared_ptr<OutputBuffers> SlamSystem::BuffersManager::GetOutputBuffersPtr()
     {
         return output_buffers_ptr;
     }
 
-    void shslam::SlamSystem::BuffersManager::Init(std::shared_ptr<NumSensors> num_sensors_ptr)
+    void SlamSystem::BuffersManager::Init(std::shared_ptr<const NumSensors> num_sensors_ptr)
     {
         printf("Initialize buffers.\n");
         input_buffers_ptr->mono_imgs.clear();

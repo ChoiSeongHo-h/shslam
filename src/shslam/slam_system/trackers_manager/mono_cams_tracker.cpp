@@ -4,43 +4,75 @@
 #include <shslam/slam_system/trackers_manager.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam.hpp>
+#include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam/ref_info.hpp>
 
 namespace shslam
 {
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::ApplyConfig(const std::vector<std::pair<cv::Matx33d, cv::Matx<double, 1, 5>>> &mono_cam_params, const std::vector<bool>& want_visualizes)
+    void SlamSystem::TrackersManager::MonoCamsTracker::ApplyConfig
+    (
+        const std::vector<int32_t>& width_vec,
+        const std::vector<int32_t>& height_vec,
+        const std::vector<cv::Matx33d>& camera_matrix_vec,
+        const std::vector<cv::Matx<double, 1, 5>>& dist_coeffs_vec,
+        const std::vector<bool>& want_visualize_vec,
+        const std::vector<double>& resizing_ratio_vec,
+        const std::vector<int32_t>& max_features_vec,
+        const std::vector<double>& rejection_ratio_vec,
+        const std::vector<double>& min_features_gap_vec
+    )
     {
-        auto num_mono_cams = mono_cam_params.size();
+        auto num_mono_cams = camera_matrix_vec.size();
         for(auto i_th = 0; i_th<num_mono_cams; ++i_th)
         {
             printf("Mono camera %d's config is applied. :\n", i_th);
             mono_cam_ptrs.emplace_back
             (
-                std::make_unique<shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam>
+                std::make_unique<SlamSystem::TrackersManager::MonoCamsTracker::MonoCam>
                 (
-                    i_th, mono_cam_params[i_th].first, mono_cam_params[i_th].second, want_visualizes[i_th]
+                    i_th,
+                    width_vec[i_th],
+                    height_vec[i_th],
+                    camera_matrix_vec[i_th],
+                    dist_coeffs_vec[i_th],
+                    want_visualize_vec[i_th],
+                    resizing_ratio_vec[i_th],
+                    max_features_vec[i_th],
+                    rejection_ratio_vec[i_th],
+                    min_features_gap_vec[i_th]
                 )
             );
         }
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::RunTrackingThreads()
+    void SlamSystem::TrackersManager::MonoCamsTracker::RunTrackingThreads()
     {
         std::vector<std::thread> tracking_threads;
         for(auto i_th = 0; i_th<mono_cam_ptrs.size(); ++i_th)
         {
             printf("Run mono camera %d tracking threads\n", i_th);
-            tracking_threads.emplace_back(std::thread(&shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Track, mono_cam_ptrs[i_th].get()));
+            tracking_threads.emplace_back(std::thread
+            (
+                &SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Track, 
+                mono_cam_ptrs[i_th].get()
+            ));
         }
         for(auto& thread : tracking_threads)
             thread.join();
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::AssociateBuffers(std::shared_ptr<shslam::InputBuffers> input_buffers_ptr, std::shared_ptr<shslam::OutputBuffers> output_buffers_ptr)
+    void SlamSystem::TrackersManager::MonoCamsTracker::AssociateBuffers
+    (
+        std::shared_ptr<InputBuffers> input_buffers_ptr,
+        std::shared_ptr<OutputBuffers> output_buffers_ptr
+    )
     {
         for(auto i_th = 0; i_th<mono_cam_ptrs.size(); ++i_th)
         {
-            mono_cam_ptrs[i_th]->input_img_buf_ptr = &input_buffers_ptr->mono_imgs[i_th];
-            mono_cam_ptrs[i_th]->output_img_buf_ptr = &output_buffers_ptr->mono_imgs[i_th];
+            mono_cam_ptrs[i_th]->AssociateBuffers
+            (
+                &input_buffers_ptr->mono_imgs[i_th],
+                &output_buffers_ptr->mono_imgs[i_th]
+            );
         }
     }
 }

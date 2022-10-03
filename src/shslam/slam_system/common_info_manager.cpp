@@ -5,16 +5,16 @@
 
 namespace shslam
 {
-    shslam::SlamSystem::CommonInfoManager::CommonInfoManager() :
-    num_sensors_ptr{std::make_shared<shslam::NumSensors>()}
+    SlamSystem::CommonInfoManager::CommonInfoManager() :
+    num_sensors_ptr(std::make_shared<NumSensors>())
     {}
 
-    std::shared_ptr<shslam::NumSensors> shslam::SlamSystem::CommonInfoManager::GetNumSensorsPtr() const
+    std::shared_ptr<const NumSensors> SlamSystem::CommonInfoManager::GetNumSensorsPtr() const
     {
         return num_sensors_ptr;
     }
 
-    void shslam::SlamSystem::CommonInfoManager::ApplyConfig(const YAML::Node& config)
+    void SlamSystem::CommonInfoManager::ApplyConfig(const YAML::Node& config)
     {
         this->num_sensors_ptr->mono_cams = config["mono_cameras"].size();
     }

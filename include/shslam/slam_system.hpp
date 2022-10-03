@@ -13,7 +13,7 @@ namespace shslam
 
         void InitBy(const std::string& config_path);
 
-        std::shared_ptr<NumSensors> GetNumSensorsPtr() const;
+        std::shared_ptr<const NumSensors> GetNumSensorsPtr() const;
 
         bool IsRunnable();
         

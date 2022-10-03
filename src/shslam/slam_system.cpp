@@ -4,35 +4,36 @@
 #include <shslam/slam_system/trackers_manager.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam.hpp>
+#include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam/ref_info.hpp>
 #include <shslam/slam_system/common_info_manager.hpp>
 #include <shslam/slam_system/buffers_manager.hpp>
 
 namespace shslam
 {
-    shslam::SlamSystem::SlamSystem() :
-    trackers_manager_ptr{std::make_unique<shslam::SlamSystem::TrackersManager>()},
-    buffers_manager_ptr{std::make_unique<shslam::SlamSystem::BuffersManager>()},
-    common_info_manager_ptr{std::make_unique<shslam::SlamSystem::CommonInfoManager>()}
+    SlamSystem::SlamSystem() :
+    trackers_manager_ptr(std::make_unique<SlamSystem::TrackersManager>()),
+    buffers_manager_ptr(std::make_unique<SlamSystem::BuffersManager>()),
+    common_info_manager_ptr(std::make_unique<SlamSystem::CommonInfoManager>())
     {
         cv::setUseOptimized(true);
     }
 
-    std::shared_ptr<shslam::InputBuffers> shslam::SlamSystem::GetInputBuffersPtr()
+    std::shared_ptr<InputBuffers> SlamSystem::GetInputBuffersPtr()
     {
         return buffers_manager_ptr->GetInputBuffersPtr();
     }
 
-    std::shared_ptr<shslam::OutputBuffers> shslam::SlamSystem::GetOutputBuffersPtr()
+    std::shared_ptr<OutputBuffers> SlamSystem::GetOutputBuffersPtr()
     {
         return buffers_manager_ptr->GetOutputBuffersPtr();
     }
 
-    void shslam::SlamSystem::Run()
+    void SlamSystem::Run()
     {
         printf("Run System.\n");
         trackers_manager_ptr->RunAllTrackingThreads();
     }
-    void shslam::SlamSystem::InitBy(const std::string& config_path)
+    void SlamSystem::InitBy(const std::string& config_path)
     {
         printf("Start initializing the system.\n");
 
@@ -48,14 +49,14 @@ namespace shslam
         printf("Complete initializing the system.\n\n");
     }
 
-    std::shared_ptr<shslam::NumSensors> shslam::SlamSystem::GetNumSensorsPtr() const
+    std::shared_ptr<const NumSensors> SlamSystem::GetNumSensorsPtr() const
     {
         auto num_sensors_ptr = common_info_manager_ptr->GetNumSensorsPtr();
         printf("Mono cameras : %d\n", num_sensors_ptr->mono_cams);
         return num_sensors_ptr;
     }
 
-    bool shslam::SlamSystem::IsRunnable()
+    bool SlamSystem::IsRunnable()
     {
         auto nums_sensors_ptr = GetNumSensorsPtr();
         bool is_runnable = false;

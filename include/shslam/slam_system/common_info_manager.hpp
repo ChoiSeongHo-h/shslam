@@ -5,7 +5,7 @@ namespace shslam
     public:
         CommonInfoManager();
         
-        std::shared_ptr<NumSensors> GetNumSensorsPtr() const;
+        std::shared_ptr<const NumSensors> GetNumSensorsPtr() const;
 
         void ApplyConfig(const YAML::Node& config);
     

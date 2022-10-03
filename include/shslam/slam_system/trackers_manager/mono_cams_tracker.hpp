@@ -3,11 +3,26 @@ namespace shslam
     class SlamSystem::TrackersManager::MonoCamsTracker
     {
     public:
-        void ApplyConfig(const std::vector<std::pair<cv::Matx33d, cv::Matx<double, 1, 5>>>& mono_cam_config, const std::vector<bool>& want_visualizes);
+        void ApplyConfig
+        (
+            const std::vector<int32_t>& width_vec,
+            const std::vector<int32_t>& height_vec,
+            const std::vector<cv::Matx33d>& camera_matrix_vec,
+            const std::vector<cv::Matx<double, 1, 5>>& dist_coeffs_vec,
+            const std::vector<bool>& want_visualize_vec,
+            const std::vector<double>& resizing_ratio_vec,
+            const std::vector<int32_t>& max_features_vec,
+            const std::vector<double>& rejection_ratio_vec,
+            const std::vector<double>& min_features_gap_vec
+        );
 
         void RunTrackingThreads();
 
-        void AssociateBuffers(std::shared_ptr<InputBuffers> input_buffers_ptr, std::shared_ptr<shslam::OutputBuffers> output_buffers_ptr);
+        void AssociateBuffers
+        (
+            std::shared_ptr<InputBuffers> input_buffers_ptr, 
+            std::shared_ptr<OutputBuffers> output_buffers_ptr
+        );
 
     private:
         class MonoCam;

@@ -4,24 +4,44 @@
 #include <shslam/slam_system/trackers_manager.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker.hpp>
 #include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam.hpp>
+#include <shslam/slam_system/trackers_manager/mono_cams_tracker/mono_cam/ref_info.hpp>
 
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
 
+//   max_finding_features: 100
+//   bad_features_rejection_ratio: 0.05
+//   min_features_distance-image_width_ratio: 0.04;
+
 namespace shslam
 {
-    shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::MonoCam
+    SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::MonoCam
     (
-        const int32_t kIdx,
-        const cv::Matx33d kCamMat,
-        const cv::Matx<double, 1, 5> kDistCoeffs,
-        bool kWantVisualize
+        const int32_t idx,
+        const int32_t width,
+        const int32_t height,
+        const cv::Matx33d& cam_mat,
+        const cv::Matx<double, 1, 5>& dist_coeffs,
+        const bool want_visualize,
+        const double resizing_ratio,
+        const int32_t max_features,
+        const double rejection_ratio,
+        const double min_features_gap
     ) :
-    kIdx{kIdx},
-    kCamMat{kCamMat},
-    kDistCoeffs{kDistCoeffs},
-    kWantVisualize{kWantVisualize},
-    is_initialized{false},
+    is_initialized(false),
+    kIdx(idx),
+    kWidth(width),
+    kHeight(height),
+    kCamMat(cam_mat),
+    kDistCoeffs(dist_coeffs),
+    kWantVisualize(want_visualize),
+    kResizingRatio(resizing_ratio),
+    ref_info_ptr(std::make_unique<SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo>
+    (
+        max_features, 
+        rejection_ratio, 
+        min_features_gap
+    )),
     accR
     {
         cv::Matx33d(
@@ -37,22 +57,47 @@ namespace shslam
         0.0)
     }
     {
-        printf("camera matrix : \n");
+        printf("camera matrix ( resizing applied ) : \n");
         std::cout<<kCamMat<<std::endl;
         printf("distortion coefficient : \n");
         std::cout<<kDistCoeffs<<std::endl;
+        printf("want to visualize : %d\n", kWantVisualize);
+        printf("resizing ratio : %f\n", kResizingRatio);
+
+        printf("\n");
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Preprocess(const std::pair<uint64_t, cv::Mat>& original, cv::Mat &resized, cv::Mat &color)
+
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::AssociateBuffers
+    (
+        std::queue<std::pair<uint64_t, cv::Mat>>* input_buffers_ptr,
+        std::queue<std::pair<uint64_t, cv::Mat>>* output_buffers_ptr
+    )
+    {
+        this->input_img_buf_ptr = input_buffers_ptr;
+        this->output_img_buf_ptr = output_buffers_ptr;
+    }
+
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Preprocess
+    (const std::pair<uint64_t, cv::Mat>& original, cv::Mat &resized, cv::Mat &color)
     {
         cv::Mat img_temp;
         auto cp_target_ref = kWantVisualize ? std::ref(color) : std::ref(img_temp);
-        cv::resize(original.second, cp_target_ref.get(), cv::Size(original.second.cols * 0.3, original.second.rows * 0.3), 0, 0, cv::INTER_LINEAR);
-        cv::cvtColor(cp_target_ref.get(), resized, cv::COLOR_BGR2GRAY);
+        cv::resize
+        (
+            original.second, 
+            cp_target_ref.get(), 
+            cv::Size(), 
+            kResizingRatio, 
+            kResizingRatio, 
+            cv::INTER_LINEAR
+        );
+        if(kWantVisualize)
+            cv::cvtColor(color, resized, cv::COLOR_BGR2GRAY);
     }
 
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Track()
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Track()
     {
         while(true)
         {
@@ -99,50 +144,16 @@ namespace shslam
                 auto node = std::string("car");
                 auto std_idx = std::to_string(kIdx);
                 pos_pub.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", node+std_idx));
-                ref_info.Clear();
+                ref_info_ptr->Clear();
 
                 //is_initialized = true;
                 //continue;
-            }
-        
-
-
-            
-            // if(true)
-            // {
-            //     std::vector<cv::Point2f> start_pts;
-            //     std::vector<cv::Point2f> end_pts;
-
-            //     for(uint32_t idx = 0; idx<mask_E.size(); ++idx)
-            //     {
-            //         if(mask_E[idx] == 0)
-            //             continue;
-
-            //         start_pts.emplace_back(ref_info.features_raw[idx]);
-            //         end_pts.emplace_back(pts_raw_from_OF[idx]);
-            //     }
-            //     printf("test E2 : %ld\n", start_pts.size());
-
-            //     for (int i = 0; i < static_cast<int>(start_pts.size()); ++i)
-            //     {
-            //         cv::arrowedLine(img_color, start_pts[i], end_pts[i], cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
-            //     }
-
-            //     /*
-            //     for(int i=0; i<features.size() ; i++)
-            //     {
-            //         cv::circle(drawingImg.get(), features[i], 5, cv::Scalar(0, 255, 0));
-            //     }
-            //     */
-            //     cv::imshow("view", img_color);
-            //     cv::waitKey(10);
-            // }
-
-            
+            }        
         }
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetInitPose(cv::Matx33d& R_ref_to_cur, cv::Matx31d& t_ref_to_cur)
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetInitPose
+    (cv::Matx33d& R_ref_to_cur, cv::Matx31d& t_ref_to_cur)
     {
         if(input_img_buf_ptr->empty())
             return;
@@ -152,15 +163,15 @@ namespace shslam
         Preprocess(input_img_buf_ptr->front(), img, img_color);
         input_img_buf_ptr->pop();
 
-        if(ref_info.IsEmpty())
+        if(ref_info_ptr->IsEmpty())
         {
-            ref_info.Get(time_now, img, kCamMat, kDistCoeffs);
+            ref_info_ptr->Get(time_now, img, kCamMat, kDistCoeffs);
             return;
         }
     
         std::vector<cv::Point2f> current_features_raw;
         double mean_disparity = 0;
-        GetCurrnetPtsRaw(current_features_raw, img, mean_disparity);
+        GetCurrnetFeaturesRaw(current_features_raw, img, mean_disparity);
         if(mean_disparity < 20)
             return;
         printf("test OF : %ld, dist %f\n", current_features_raw.size(), mean_disparity);
@@ -168,80 +179,59 @@ namespace shslam
         cv::undistortPoints(current_features_raw, current_features, kCamMat, kDistCoeffs);
         
         std::vector<uchar> mask_E;
-        cv::Matx33d E = cv::findEssentialMat(current_features, ref_info.features, 1.0, cv::Point2f(0, 0), cv::LMEDS, 0.995, 1.0, mask_E);
+        cv::Matx33d E = cv::findEssentialMat(current_features, ref_info_ptr->features, 1.0, cv::Point2f(0, 0), cv::LMEDS, 0.995, 1.0, mask_E);
         int32_t num_good_pts = std::accumulate(mask_E.begin(), mask_E.end(), 0);
         if(num_good_pts < 50)
         {
-            ref_info.Clear();
+            ref_info_ptr->Clear();
             return;
         }
         printf("test E : %d\n", num_good_pts);
 
-        cv::recoverPose(E, current_features, ref_info.features, R_ref_to_cur, t_ref_to_cur, 1.0, cv::Point2d(0, 0), mask_E);
+        cv::recoverPose(E, current_features, ref_info_ptr->features, R_ref_to_cur, t_ref_to_cur, 1.0, cv::Point2d(0, 0), mask_E);
         if(R_ref_to_cur(0,0) < 0 || R_ref_to_cur(1,1) < 0 || R_ref_to_cur(2,2) < 0)
             return;    
         
         if(kWantVisualize)
         {
-            for (int idx = 0; idx < ref_info.features_raw.size(); ++idx)
+            for (int idx = 0; idx < ref_info_ptr->features_raw.size(); ++idx)
             {
                 if(mask_E[idx] == 0)
                     continue;
 
-                cv::arrowedLine(img_color, ref_info.features_raw[idx], current_features_raw[idx], cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
+                cv::arrowedLine(img_color, ref_info_ptr->features_raw[idx], current_features_raw[idx], cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
                 output_img_buf_ptr->emplace(std::make_pair(time_now, img_color));
             }
         }
         is_initialized = true;
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetCurrnetPtsRaw(std::vector<cv::Point2f>& current_features_raw, const cv::Mat& img, double& mean_disparity)
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetCurrnetFeaturesRaw
+    (std::vector<cv::Point2f>& current_features_raw, const cv::Mat& img, double& mean_disparity)
     {
         std::vector<cv::Point2f> pts_tracked;
         std::vector<uchar> mask_OF;
         std::vector<float> err;
-        cv::calcOpticalFlowPyrLK(ref_info.img, img, ref_info.features_raw, pts_tracked, mask_OF, err, cv::Size(21, 21), 3);
+        cv::calcOpticalFlowPyrLK(ref_info_ptr->img, img, ref_info_ptr->features_raw, pts_tracked, mask_OF, err, cv::Size(21, 21), 3);
 
         for(auto idx = 0; idx<mask_OF.size(); ++idx)
         {
             if(mask_OF[idx] == 0)
                 continue;
 
-            mean_disparity += cv::norm(pts_tracked[idx] - ref_info.features_raw[idx]);
+            mean_disparity += cv::norm(pts_tracked[idx] - ref_info_ptr->features_raw[idx]);
             current_features_raw.emplace_back(pts_tracked[idx]);
-            ref_info.features_raw[current_features_raw.size()-1] = ref_info.features_raw[idx];
-            ref_info.features[current_features_raw.size()-1] = ref_info.features[idx];
+            ref_info_ptr->features_raw[current_features_raw.size()-1] = ref_info_ptr->features_raw[idx];
+            ref_info_ptr->features[current_features_raw.size()-1] = ref_info_ptr->features[idx];
         }
-        ref_info.features_raw.resize(current_features_raw.size());
-        ref_info.features.resize(current_features_raw.size());
+        ref_info_ptr->features_raw.resize(current_features_raw.size());
+        ref_info_ptr->features.resize(current_features_raw.size());
         mean_disparity /= current_features_raw.size();
     }
 
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::Get(const uint64_t& time_now, const cv::Mat& img, const cv::Matx33d& kCamMat, const cv::Matx<double, 1, 5>& kDistCoeffs)
-    {
-        goodFeaturesToTrack(img, features_raw, 150, 0.05, 20);
-        if(features_raw.size() < 100)
-            return;
-            
-        time = time_now;
-        this->img = std::move(img);
-        cv::undistortPoints(features_raw, features, kCamMat, kDistCoeffs);
-    }
 
-    bool shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::IsEmpty()
-    {
-        if (time == -1)
-            return true;
-        else
-            return false;
-    }
-    
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::Clear()
-    {
-        time = -1;
-    }
-
-    void shslam::SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetQuaternion(const cv::Matx33d& R, double* Q)
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetQuaternion
+    (const cv::Matx33d& R, double* Q)
     {
         double trace = R(0,0) + R(1,1) + R(2,2);
 

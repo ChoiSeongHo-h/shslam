@@ -1,32 +1,62 @@
 # Sensors Part
 mono_cameras:
-#- camera_matrix:
+#- width: (uint32_t)
+#  height: (uint32_t)
+#  camera_matrix:
 #  [fx, 0,  cx,
 #   0,  fy, cy,
 #   0,  0,  1  ]
-#  # (3*3 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
+#  -> (3*3 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
+#  -> input image's camera matrix. you must get this using camera with input image's resolution.
+#  -> input image will be resized and camera matrix will be changed.
 #  distortion_coefficient:
 #  [k1, k2, p1, p2, k3]
-#  # (1*5 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
-#  want_to_visualize: true/false
-#  # boolean
-- camera_matrix:
+#  -> (1*5 double, OpenCV notation : https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
+#  -> input image's distortion coefficient. you must get this using camera with input image's aspect ratio.
+#  -> if you calibrate camera with same aspect ratio but diffrent resolution, it's ok.
+#  want_to_visualize: (boolean)
+#  resizing_ratio: (double)
+#  -> width' = width * resizing_ratio, height' = height * resizing_ratio
+#  -> imege of (width', height') will be applied for system
+#  max_finding_features: (int32_t)
+#  -> goodFeaturesToTrack()'s maxCorners
+#  bad_features_rejection_ratio: (double)
+#  -> goodFeaturesToTrack()'s qualityLevel
+#  min_features_distance-image_width_ratio: (double)
+#  -> min of ( features_distance / image_width ), it will determine goodFeaturesToTrack()'s minDistance.
+- width: 2048
+  height: 1536
+  camera_matrix:
   [1857.4752797615988, 0.0,                1039.692658811044,
    0.0,                1869.2155909761746, 739.3362262994145,
    0.0,                0.0,                1.0               ]
   distortion_coefficient:
   [-3.0451652061637519e-01, 3.8894492749157322e-02, 1.0517466490567872e-03, -5.5095449411338973e-04, 1.7054732639063463e-01]
   want_to_visualize: true
-- camera_matrix:
+  resizing_ratio: 0.315
+  max_finding_features: 100
+  bad_features_rejection_ratio: 0.05
+  min_features_distance-image_width_ratio: 0.03
+
+- width: 2048
+  height: 1536
+  camera_matrix:
   [ 1814.75275617,  0.0,            1006.56038505, 
     0.0,            1818.77214155,  689.78092195,
     0.0,            0.0,            1.0           ]
   distortion_coefficient:
   [-3.3667553856802590e-01, 2.2370191478408946e-01, 6.9364654936351162e-04, 6.5891956666038094e-04, -1.4386286982166674e-01]
   want_to_visualize: true
+  resizing_ratio: 0.315
+  max_finding_features: 100
+  bad_features_rejection_ratio: 0.05
+  min_features_distance-image_width_ratio: 0.04
 # - camera_matrix: [...]
 #   distortion_coefficient: [...] ...
-#   want_to_visualize: true
+#   want_to_visualize: ...
+#   resizing_ratio: ...
+#   max_finding_features: 100
+#   bad_features_rejection_ratio: 0.05
+#   min_features_distance-image_width_ratio: 0.04
 
 #Parameters Part
-want_to_visualize: ture

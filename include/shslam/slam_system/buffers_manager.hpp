@@ -7,7 +7,7 @@ namespace shslam
         std::shared_ptr<InputBuffers> GetInputBuffersPtr();
         std::shared_ptr<OutputBuffers> GetOutputBuffersPtr();
 
-        void Init(std::shared_ptr<NumSensors> num_sensors_ptr);
+        void Init(std::shared_ptr<const NumSensors> num_sensors_ptr);
 
     private:
         std::shared_ptr<InputBuffers> input_buffers_ptr;
