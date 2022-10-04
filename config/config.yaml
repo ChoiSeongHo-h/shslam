@@ -1,7 +1,7 @@
 # Sensors Part
 mono_cameras:
-#- width: (uint32_t)
-#  height: (uint32_t)
+#- width: (int32_t, px)
+#  height: (int32_t, px)
 #  camera_matrix:
 #  [fx, 0,  cx,
 #   0,  fy, cy,
@@ -15,15 +15,30 @@ mono_cameras:
 #  -> input image's distortion coefficient. you must get this using camera with input image's aspect ratio.
 #  -> if you calibrate camera with same aspect ratio but diffrent resolution, it's ok.
 #  want_to_visualize: (boolean)
-#  resizing_ratio: (double)
+#  resizing_ratio: (double, 1.0 ~ 0.0)
 #  -> width' = width * resizing_ratio, height' = height * resizing_ratio
 #  -> imege of (width', height') will be applied for system
-#  max_finding_features: (int32_t)
+#  max_finding_features: (int32_t, amout)
 #  -> goodFeaturesToTrack()'s maxCorners
-#  bad_features_rejection_ratio: (double)
-#  -> goodFeaturesToTrack()'s qualityLevel
-#  min_features_distance-image_width_ratio: (double)
-#  -> min of ( features_distance / image_width ), it will determine goodFeaturesToTrack()'s minDistance.
+#  bad_features_rejection_ratio: (double, 1.0 ~ 0.0)
+#  -> goodFeaturesToTrack()'s qualityLevel.
+#  min_reference_features: (int32_t, amout)
+#  -> features amout of goodFeaturesToTrack() is must more than this.
+#  min_features_gap: (double, px)
+#  -> goodFeaturesToTrack()'s minDistance.
+#  opticalflow_patch_size: (int32_t, px)
+#  -> for opticalflow, determine width, height of feature's patch.
+#  -> calcOpticalFlowPyrLK()'s winSize.
+#  opticalflow_pyramid_level: (int32_t, max index)
+#  -> (opticalflow_pyramid_level + 1) pyramids will be used for opticalflow.
+#  -> calcOpticalFlowPyrLK()'s maxLevel.
+#  min_disparity : (double, px)
+#  -> for initialize, disparity of reference frame and this frame is must more than this.
+#  LMedS_probablity: (double, 1.0 ~ 0.0)
+#  -> findEssentialMat()'s prob.
+#  min_features_passed_essential_matrix: (int32_t, amout)
+#  -> after calcuating essential matrix, remain feature amount is must more than this.
+
 - width: 2048
   height: 1536
   camera_matrix:
@@ -33,10 +48,16 @@ mono_cameras:
   distortion_coefficient:
   [-3.0451652061637519e-01, 3.8894492749157322e-02, 1.0517466490567872e-03, -5.5095449411338973e-04, 1.7054732639063463e-01]
   want_to_visualize: true
-  resizing_ratio: 0.315
+  resizing_ratio: 0.3125
   max_finding_features: 100
   bad_features_rejection_ratio: 0.05
-  min_features_distance-image_width_ratio: 0.03
+  min_reference_features: 60
+  min_features_gap: 20.0
+  opticalflow_patch_size: 21
+  opticalflow_pyramid_level: 3
+  min_disparity: 20
+  LMedS_probablity: 0.995
+  min_features_passed_essential_matrix: 50
 
 - width: 2048
   height: 1536
@@ -50,13 +71,28 @@ mono_cameras:
   resizing_ratio: 0.315
   max_finding_features: 100
   bad_features_rejection_ratio: 0.05
-  min_features_distance-image_width_ratio: 0.04
-# - camera_matrix: [...]
+  min_reference_features: 80
+  min_features_gap: 20.0
+  opticalflow_patch_size: 21
+  opticalflow_pyramid_level: 3
+  min_disparity: 20
+  LMedS_probablity: 0.995
+  min_features_passed_essential_matrix: 50
+
+# - width
+#   height
+#   camera_matrix: [...]
 #   distortion_coefficient: [...] ...
 #   want_to_visualize: ...
 #   resizing_ratio: ...
-#   max_finding_features: 100
-#   bad_features_rejection_ratio: 0.05
-#   min_features_distance-image_width_ratio: 0.04
+#   max_finding_features: ...
+#   bad_features_rejection_ratio: ...
+#   min_reference_features: ...
+#   min_features_gap: ...
+#   opticalflow_patch_size: ...
+#   opticalflow_pyramid_level: ...
+#   min_disparity: ...
+#   LMedS_probablity: ...
+#   min_features_passed_essential_matrix: ...
 
 #Parameters Part

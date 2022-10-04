@@ -9,10 +9,6 @@
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
 
-//   max_finding_features: 100
-//   bad_features_rejection_ratio: 0.05
-//   min_features_distance-image_width_ratio: 0.04;
-
 namespace shslam
 {
     SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::MonoCam
@@ -26,7 +22,13 @@ namespace shslam
         const double resizing_ratio,
         const int32_t max_features,
         const double rejection_ratio,
-        const double min_features_gap
+        const int32_t min_ref_features,
+        const double min_features_gap,
+        const int32_t OF_patch_sz,
+        const int32_t OF_pyr_lv,
+        const double min_disparity,
+        const double min_prop,
+        const int32_t min_features_passed_E
     ) :
     is_initialized(false),
     kIdx(idx),
@@ -36,11 +38,17 @@ namespace shslam
     kDistCoeffs(dist_coeffs),
     kWantVisualize(want_visualize),
     kResizingRatio(resizing_ratio),
+    kOFPatchSz(OF_patch_sz),
+    kOFPyrLv(OF_pyr_lv),
+    kMinDisparity(min_disparity),
+    kLMedSProp(min_prop),
+    kMinFeaturesPassedE(min_features_passed_E),
     ref_info_ptr(std::make_unique<SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo>
     (
         max_features, 
         rejection_ratio, 
-        min_features_gap
+        min_features_gap,
+        min_ref_features
     )),
     accR
     {
@@ -57,12 +65,19 @@ namespace shslam
         0.0)
     }
     {
+        printf("width ( resizing applied ) : %d\n", kWidth);
+        printf("height ( resizing applied ) : %d\n", kHeight);
         printf("camera matrix ( resizing applied ) : \n");
         std::cout<<kCamMat<<std::endl;
         printf("distortion coefficient : \n");
         std::cout<<kDistCoeffs<<std::endl;
         printf("want to visualize : %d\n", kWantVisualize);
         printf("resizing ratio : %f\n", kResizingRatio);
+        printf("opticalflow patch size : %d\n", kOFPatchSz);
+        printf("opticalflow pyramid level : %d\n", kOFPyrLv);
+        printf("min disparity : %f\n", kMinDisparity);
+        printf("LMedS probablity : %f\n", kLMedSProp);
+        printf("num features by essential matrix : %d\n", kMinFeaturesPassedE);
 
         printf("\n");
     }
@@ -78,20 +93,13 @@ namespace shslam
         this->output_img_buf_ptr = output_buffers_ptr;
     }
 
-    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::Preprocess
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::ResizeImg
     (const std::pair<uint64_t, cv::Mat>& original, cv::Mat &resized, cv::Mat &color)
     {
         cv::Mat img_temp;
         auto cp_target_ref = kWantVisualize ? std::ref(color) : std::ref(img_temp);
         cv::resize
-        (
-            original.second, 
-            cp_target_ref.get(), 
-            cv::Size(), 
-            kResizingRatio, 
-            kResizingRatio, 
-            cv::INTER_LINEAR
-        );
+        (original.second, cp_target_ref.get(), cv::Size(kWidth, kHeight), 0, 0, cv::INTER_LINEAR);
         if(kWantVisualize)
             cv::cvtColor(color, resized, cv::COLOR_BGR2GRAY);
     }
@@ -106,7 +114,7 @@ namespace shslam
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
-
+//
             is_initialized = false;
             if(!is_initialized)
             {
@@ -160,75 +168,192 @@ namespace shslam
 
         cv::Mat img, img_color;
         uint64_t time_now = input_img_buf_ptr->front().first;
-        Preprocess(input_img_buf_ptr->front(), img, img_color);
+        ResizeImg(input_img_buf_ptr->front(), img, img_color);
         input_img_buf_ptr->pop();
 
         if(ref_info_ptr->IsEmpty())
         {
-            ref_info_ptr->Get(time_now, img, kCamMat, kDistCoeffs);
+            ref_info_ptr->GetFeatures(time_now, img, kCamMat, kDistCoeffs);
             return;
         }
     
-        std::vector<cv::Point2f> current_features_raw;
-        double mean_disparity = 0;
-        GetCurrnetFeaturesRaw(current_features_raw, img, mean_disparity);
-        if(mean_disparity < 20)
+        bool is_passed_this_test = false;
+        std::vector<cv::Point2f> current_features, current_features_raw;
+        TrackCurrnetFeaturesRaw(is_passed_this_test, current_features_raw, current_features, img);
+        if(!is_passed_this_test)
             return;
-        printf("test OF : %ld, dist %f\n", current_features_raw.size(), mean_disparity);
-        std::vector<cv::Point2f> current_features;
-        cv::undistortPoints(current_features_raw, current_features, kCamMat, kDistCoeffs);
-        
-        std::vector<uchar> mask_E;
-        cv::Matx33d E = cv::findEssentialMat(current_features, ref_info_ptr->features, 1.0, cv::Point2f(0, 0), cv::LMEDS, 0.995, 1.0, mask_E);
-        int32_t num_good_pts = std::accumulate(mask_E.begin(), mask_E.end(), 0);
-        if(num_good_pts < 50)
-        {
-            ref_info_ptr->Clear();
-            return;
-        }
-        printf("test E : %d\n", num_good_pts);
 
-        cv::recoverPose(E, current_features, ref_info_ptr->features, R_ref_to_cur, t_ref_to_cur, 1.0, cv::Point2d(0, 0), mask_E);
-        if(R_ref_to_cur(0,0) < 0 || R_ref_to_cur(1,1) < 0 || R_ref_to_cur(2,2) < 0)
-            return;    
+        is_passed_this_test = false;
+        std::vector<uchar> is_features_passed_tests;
+        cv::Matx33d E;
+        CalcE(is_passed_this_test, is_features_passed_tests, E, current_features);
+        if(!is_passed_this_test)
+            return;
+
+        is_passed_this_test = false;
+        CalcInitPose(is_passed_this_test, is_features_passed_tests, E, current_features, R_ref_to_cur, t_ref_to_cur);
+        if(!is_passed_this_test)
+            return;
         
         if(kWantVisualize)
-        {
-            for (int idx = 0; idx < ref_info_ptr->features_raw.size(); ++idx)
-            {
-                if(mask_E[idx] == 0)
-                    continue;
+            DrawInitOF(time_now, is_features_passed_tests, img_color, current_features_raw);
 
-                cv::arrowedLine(img_color, ref_info_ptr->features_raw[idx], current_features_raw[idx], cv::Scalar(0, 255, 0), 1, cv::LINE_AA);
-                output_img_buf_ptr->emplace(std::make_pair(time_now, img_color));
-            }
-        }
         is_initialized = true;
     }
 
-    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetCurrnetFeaturesRaw
-    (std::vector<cv::Point2f>& current_features_raw, const cv::Mat& img, double& mean_disparity)
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::TrackCurrnetFeaturesRaw
+    (
+        bool& is_passed_this_test,
+        std::vector<cv::Point2f>& current_features_raw, 
+        std::vector<cv::Point2f>& current_features, 
+        const cv::Mat& img
+    )
     {
-        std::vector<cv::Point2f> pts_tracked;
-        std::vector<uchar> mask_OF;
+        std::vector<uchar> is_features_passed_OF;
         std::vector<float> err;
-        cv::calcOpticalFlowPyrLK(ref_info_ptr->img, img, ref_info_ptr->features_raw, pts_tracked, mask_OF, err, cv::Size(21, 21), 3);
+        cv::calcOpticalFlowPyrLK
+        (
+            ref_info_ptr->img, img,
+            ref_info_ptr->features_raw,
+            current_features_raw,
+            is_features_passed_OF,
+            err,
+            cv::Size(kOFPatchSz, kOFPatchSz),
+            kOFPyrLv
+        );
 
-        for(auto idx = 0; idx<mask_OF.size(); ++idx)
+        std::vector<std::vector<cv::Point2f>*> features_want_reordering_ptrs
+        {&ref_info_ptr->features_raw, &ref_info_ptr->features, &current_features_raw};
+        ReorderFeatures(is_features_passed_OF, features_want_reordering_ptrs);
+
+        double mean_disparity = 0.0;
+        auto num_features = ref_info_ptr->features_raw.size();
+        for(auto idx = 0; idx<num_features; ++idx)
+            mean_disparity += cv::norm(current_features_raw[idx] - ref_info_ptr->features_raw[idx]);
+        mean_disparity /= num_features;
+
+        if(mean_disparity < kMinDisparity)
         {
-            if(mask_OF[idx] == 0)
-                continue;
-
-            mean_disparity += cv::norm(pts_tracked[idx] - ref_info_ptr->features_raw[idx]);
-            current_features_raw.emplace_back(pts_tracked[idx]);
-            ref_info_ptr->features_raw[current_features_raw.size()-1] = ref_info_ptr->features_raw[idx];
-            ref_info_ptr->features[current_features_raw.size()-1] = ref_info_ptr->features[idx];
+            is_passed_this_test = false;
+            return;
         }
-        ref_info_ptr->features_raw.resize(current_features_raw.size());
-        ref_info_ptr->features.resize(current_features_raw.size());
-        mean_disparity /= current_features_raw.size();
+        is_passed_this_test = true;
+        cv::undistortPoints(current_features_raw, current_features, kCamMat, kDistCoeffs);
+
+        printf("test OF : %ld, dist %f\n", current_features_raw.size(), mean_disparity);
     }
 
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::ReorderFeatures
+    (
+        const std::vector<uchar> &is_features_passed_test, 
+        const std::vector<std::vector<cv::Point2f>*>& features_ptrs
+    )
+    {
+        auto num_test_passed = 0;
+        for(auto idx = 0; idx<is_features_passed_test.size(); ++idx)
+        {
+            if(is_features_passed_test[idx] == 0)
+                continue;
+
+            for(auto& features_ptr : features_ptrs)
+                (*features_ptr)[num_test_passed] = (*features_ptr)[idx];
+            ++num_test_passed;
+        }
+        for(auto& features_ptr : features_ptrs)
+            (*features_ptr).resize(num_test_passed);
+    }
+
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::CalcE
+    (
+        bool& is_passed_this_test,
+        std::vector<uchar>& is_features_passed_tests,
+        cv::Matx33d& E,
+        std::vector<cv::Point2f>& current_features
+    )
+    {
+        E = cv::findEssentialMat
+        (
+            current_features, 
+            ref_info_ptr->features, 
+            1.0, 
+            cv::Point2f(0, 0), 
+            cv::LMEDS, 
+            kLMedSProp, 
+            1.0, 
+            is_features_passed_tests
+        );
+        auto num_features_passed_E = std::accumulate
+        (is_features_passed_tests.begin(), is_features_passed_tests.end(), 0);
+        if(num_features_passed_E < kMinFeaturesPassedE)
+        {
+            ref_info_ptr->Clear();
+            is_passed_this_test = false;
+            return;
+        }
+
+        is_passed_this_test = true;
+        printf("test E : %d\n", num_features_passed_E);
+    }
+
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::CalcInitPose
+    (
+        bool& is_passed_this_test, 
+        std::vector<uchar>& is_features_passed_tests,
+        cv::Matx33d& E,
+        std::vector<cv::Point2f>& current_features,
+        cv::Matx33d& R_ref_to_cur,
+        cv::Matx31d& t_ref_to_cur
+    )
+    {
+        cv::recoverPose
+        (
+            E,
+            current_features,
+            ref_info_ptr->features, 
+            R_ref_to_cur, 
+            t_ref_to_cur,
+            1.0, 
+            cv::Point2f(0, 0), 
+            is_features_passed_tests
+        );
+        bool has_wrong_R = R_ref_to_cur(0,0) < 0 || R_ref_to_cur(1,1) < 0 || R_ref_to_cur(2,2) < 0;
+        if(has_wrong_R)
+        {
+            is_passed_this_test = false;
+            return;    
+        }
+
+        is_passed_this_test = true;
+        std::vector<std::vector<cv::Point2f>*> features_want_reordering_ptrs
+        {&ref_info_ptr->features, &current_features};
+        ReorderFeatures(is_features_passed_tests, features_want_reordering_ptrs);
+    }
+
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::DrawInitOF
+    (
+        uint64_t time_now,
+        const std::vector<uchar>& is_features_passed_tests,
+        cv::Mat& img_color,
+        const std::vector<cv::Point2f>& current_features_raw
+    )
+    {
+        for (int idx = 0; idx < ref_info_ptr->features_raw.size(); ++idx)
+        {
+            if(is_features_passed_tests[idx] == 0)
+                continue;
+
+            cv::arrowedLine
+            (
+                img_color, 
+                ref_info_ptr->features_raw[idx], 
+                current_features_raw[idx], 
+                cv::Scalar(0, 255, 0), 
+                1, 
+                cv::LINE_AA
+            );
+            output_img_buf_ptr->emplace(std::make_pair(time_now, img_color));
+        }
+    }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetQuaternion
     (const cv::Matx33d& R, double* Q)

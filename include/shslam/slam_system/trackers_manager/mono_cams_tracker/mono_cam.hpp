@@ -14,7 +14,13 @@ namespace shslam
             const double resizing_ratio,
             const int32_t max_features,
             const double rejection_ratio,
-            const double min_features_gap_vec
+            const int32_t min_ref_features,
+            const double min_features_gap,
+            const int32_t OF_patch_sz,
+            const int32_t OF_pyr_lv,
+            const double min_disparity,
+            const double min_prop,
+            const int32_t min_features_passed_E
         );
 
         void Track();
@@ -29,16 +35,52 @@ namespace shslam
     private :
         class RefInfo;
 
+        void DrawInitOF
+        (
+            uint64_t time_now,
+            const std::vector<uchar>& is_features_passed_tests,
+            cv::Mat& img_color,
+            const std::vector<cv::Point2f>& current_features_raw
+        );
+
+        void CalcInitPose
+        (
+            bool& is_passed_this_test,
+            std::vector<uchar>& is_features_passed_tests,
+            cv::Matx33d& E,
+            std::vector<cv::Point2f>& current_features,
+            cv::Matx33d &R_ref_to_cur,
+            cv::Matx31d &t_ref_to_cur
+        );
+
+        void CalcE
+        (
+            bool& is_passed_this_test,
+            std::vector<uchar>& is_features_passed_tests,
+            cv::Matx33d& E,
+            std::vector<cv::Point2f>& current_features
+        );
+
+        void ReorderFeatures
+        (
+            const std::vector<uchar>& is_features_passed_test, 
+            const std::vector<std::vector<cv::Point2f>*>& features_ptrs
+        );
+
         void GetInitPose(cv::Matx33d& R_ref_to_cur, cv::Matx31d& t_ref_to_cur);
 
-        void GetCurrnetFeaturesRaw(std::vector<cv::Point2f>& current_pts_raw, const cv::Mat& img, double& mean_dist);
-        //RefInfo ref_info_raw;
+        void TrackCurrnetFeaturesRaw
+        (
+            bool& is_passed_this_test, 
+            std::vector<cv::Point2f>& current_pts_raw, 
+            std::vector<cv::Point2f>& current_features, 
+            const cv::Mat& img
+        );
 
-        void Preprocess(const std::pair<uint64_t, cv::Mat>& original, cv::Mat &resized, cv::Mat& color);
+        void ResizeImg(const std::pair<uint64_t, cv::Mat>& original, cv::Mat &resized, cv::Mat& color);
 
 
         void GetQuaternion(const cv::Matx33d& R, double* Q);
-        //void GetRefFeatures();
 
         std::unique_ptr<RefInfo> ref_info_ptr;                    
         std::queue<std::pair<uint64_t, cv::Mat>>* input_img_buf_ptr;
@@ -52,6 +94,11 @@ namespace shslam
         const cv::Matx<double, 1, 5> kDistCoeffs;
         const bool kWantVisualize;
         const double kResizingRatio;
+        const int32_t kOFPatchSz;
+        const int32_t kOFPyrLv;
+        const double kMinDisparity;
+        const double kLMedSProp;
+        const int32_t kMinFeaturesPassedE;
 
         cv::Matx33d accR;
         cv::Matx31d act;

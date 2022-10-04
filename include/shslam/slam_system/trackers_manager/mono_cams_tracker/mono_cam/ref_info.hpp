@@ -3,10 +3,16 @@ namespace shslam
     class SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo
     {
     public:
-        RefInfo(const int32_t max_features, const double rejection_ratio, const double min_features_gap);
+        RefInfo
+        (
+            const int32_t max_features,
+            const double rejection_ratio,
+            const double min_features_gap,
+            const int32_t min_ref_features
+        );
         bool IsEmpty();
         void Clear();
-        void Get
+        void GetFeatures
         (
             const uint64_t& now, 
             const cv::Mat& img, 
@@ -20,6 +26,7 @@ namespace shslam
         cv::Mat img;
         const int32_t kMaxFeatures;
         const double kRejectionRatio;
-        const double kMinfeaturesGap;
+        const double kMinFeaturesGap;
+        const int32_t kMinRefFeatures;
     };
 }

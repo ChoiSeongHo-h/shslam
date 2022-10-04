@@ -12,15 +12,18 @@ namespace shslam
     (
         const int32_t max_features,
         const double rejection_ratio,
-        const double min_features_gap
+        const double min_features_gap,
+        const int32_t min_ref_features
     ) :
     kMaxFeatures(max_features),
     kRejectionRatio(rejection_ratio),
-    kMinfeaturesGap(min_features_gap)
+    kMinFeaturesGap(min_features_gap),
+    kMinRefFeatures(min_ref_features)
     {
-        printf("max finding features : %d\n", kMaxFeatures);
-        printf("bad features rejection ratio : %f\n", kRejectionRatio);
-        printf("min features distance-image width ratio : %f\n", kMinfeaturesGap);
+        printf("    max finding features : %d\n", kMaxFeatures);
+        printf("    bad features rejection ratio : %f\n", kRejectionRatio);
+        printf("    min features gap : %f\n", kMinFeaturesGap);
+        printf("    min reference features : %d\n", kMinRefFeatures);
     }
 
     bool SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::IsEmpty()
@@ -36,7 +39,7 @@ namespace shslam
         time = -1;
     }
 
-    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::Get
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::GetFeatures
     (
         const uint64_t& time_now,
         const cv::Mat& img,
@@ -44,8 +47,8 @@ namespace shslam
         const cv::Matx<double, 1, 5>& kDistCoeffs
     )
     {
-        goodFeaturesToTrack(img, features_raw, kMaxFeatures, kRejectionRatio, kMinfeaturesGap);
-        if(features_raw.size() < 80)
+        goodFeaturesToTrack(img, features_raw, kMaxFeatures, kRejectionRatio, kMinFeaturesGap);
+        if(features_raw.size() < kMinRefFeatures)
             return;
             
         time = time_now;

@@ -18,7 +18,13 @@ namespace shslam
         const std::vector<double>& resizing_ratio_vec,
         const std::vector<int32_t>& max_features_vec,
         const std::vector<double>& rejection_ratio_vec,
-        const std::vector<double>& min_features_gap_vec
+        const std::vector<int32_t> min_ref_features_vec,
+        const std::vector<double>& min_features_gap_vec,
+        const std::vector<int32_t>& OF_patch_sz_vec,
+        const std::vector<int32_t>& OF_pyr_lv_vec,
+        const std::vector<double>& min_disparity_vec,
+        const std::vector<double>& LMedS_prob_vec,
+        const std::vector<int32_t>& min_features_passed_E_vec
     )
     {
         auto num_mono_cams = camera_matrix_vec.size();
@@ -38,7 +44,13 @@ namespace shslam
                     resizing_ratio_vec[i_th],
                     max_features_vec[i_th],
                     rejection_ratio_vec[i_th],
-                    min_features_gap_vec[i_th]
+                    min_ref_features_vec[i_th],
+                    min_features_gap_vec[i_th],
+                    OF_patch_sz_vec[i_th],
+                    OF_pyr_lv_vec[i_th],
+                    min_disparity_vec[i_th],
+                    LMedS_prob_vec[i_th],
+                    min_features_passed_E_vec[i_th]
                 )
             );
         }

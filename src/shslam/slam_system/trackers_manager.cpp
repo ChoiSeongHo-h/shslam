@@ -45,18 +45,30 @@ namespace shslam
             std::vector<double> resizing_ratio_vec;
             std::vector<int32_t> max_features_vec;
             std::vector<double> rejection_ratio_vec;
+
+            std::vector<int32_t> min_ref_features_vec;
+
             std::vector<double> min_features_gap_vec;
+            std::vector<int32_t> OF_patch_sz_vec;
+            std::vector<int32_t> OF_pyr_lv_vec;
+
+            std::vector<double> min_disparity_vec;
+            std::vector<double> LMedS_prob_vec;
+            std::vector<int32_t> min_features_passed_E_vec;
+
+
+
             printf("%ld mono cameras will be used.\n", num_mono_cams);
             for(auto i_th = 0; i_th<num_mono_cams; ++i_th)
             {
-                auto width = config["mono_cameras"][i_th]["width"].as<int32_t>();
-                width_vec.emplace_back(width);
-                
-                auto height = config["mono_cameras"][i_th]["height"].as<int32_t>();
-                height_vec.emplace_back(height);
-
                 auto resizing_ratio = config["mono_cameras"][i_th]["resizing_ratio"].as<double>();
                 resizing_ratio_vec.emplace_back(resizing_ratio);
+             
+                auto width = config["mono_cameras"][i_th]["width"].as<int32_t>();
+                width_vec.emplace_back(int32_t(double(width) * resizing_ratio));
+                
+                auto height = config["mono_cameras"][i_th]["height"].as<int32_t>();
+                height_vec.emplace_back(int32_t(double(height) * resizing_ratio));
 
                 auto cam_mat_1d = std::move(config["mono_cameras"][i_th]["camera_matrix"].as<std::vector<double>>());
                 auto cam_mat = std::move(cv::Matx33d(cam_mat_1d.data()));
@@ -76,8 +88,26 @@ namespace shslam
                 auto rejection_ratio = config["mono_cameras"][i_th]["bad_features_rejection_ratio"].as<double>();
                 rejection_ratio_vec.emplace_back(rejection_ratio);
 
-                auto min_features_gap_width_ratio = config["mono_cameras"][i_th]["min_features_distance-image_width_ratio"].as<double>();
-                min_features_gap_vec.emplace_back(resizing_ratio * double(width) * min_features_gap_width_ratio);
+                auto min_ref_features = config["mono_cameras"][i_th]["min_reference_features"].as<int32_t>();
+                min_ref_features_vec.emplace_back(min_ref_features);
+
+                auto min_features_gap = config["mono_cameras"][i_th]["min_features_gap"].as<double>();
+                min_features_gap_vec.emplace_back(min_features_gap);
+
+                auto OF_patch_sz = config["mono_cameras"][i_th]["opticalflow_patch_size"].as<int32_t>();
+                OF_patch_sz_vec.emplace_back(OF_patch_sz);
+
+                auto OF_pyr_lv = config["mono_cameras"][i_th]["opticalflow_pyramid_level"].as<int32_t>();
+                OF_pyr_lv_vec.emplace_back(OF_pyr_lv);
+
+                auto min_disparity = config["mono_cameras"][i_th]["min_disparity"].as<double>();
+                min_disparity_vec.emplace_back(min_disparity);
+
+                auto LMedS_prob = config["mono_cameras"][i_th]["LMedS_probablity"].as<double>();
+                LMedS_prob_vec.emplace_back(LMedS_prob);
+
+                auto min_features_passed_E = config["mono_cameras"][i_th]["min_features_passed_essential_matrix"].as<double>();
+                min_features_passed_E_vec.emplace_back(min_features_passed_E);
             }
 
             mono_cams_tracker_ptr->ApplyConfig
@@ -90,7 +120,13 @@ namespace shslam
                 resizing_ratio_vec,
                 max_features_vec,
                 rejection_ratio_vec,
-                min_features_gap_vec
+                min_ref_features_vec,
+                min_features_gap_vec,
+                OF_patch_sz_vec,
+                OF_pyr_lv_vec,
+                min_disparity_vec,
+                LMedS_prob_vec,
+                min_features_passed_E_vec
             );
         }
 
