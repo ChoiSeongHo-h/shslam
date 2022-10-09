@@ -77,7 +77,7 @@ namespace shslam
         printf("opticalflow pyramid level : %d\n", kOFPyrLv);
         printf("min disparity : %f\n", kMinDisparity);
         printf("LMedS probablity : %f\n", kLMedSProp);
-        printf("num features by essential matrix : %d\n", kMinFeaturesPassedE);
+        printf("min features by essential matrix : %d\n", kMinFeaturesPassedE);
 
         printf("\n");
     }
@@ -138,10 +138,9 @@ namespace shslam
 
                 auto R_cur_to_ref = Rt_cur_to_ref.get_minor<3, 3>(0, 0);
                 auto t_cur_to_ref_in_cur = Rt_cur_to_ref.get_minor<3, 1>(0, 3);
-                t_org_to_cur_in_org += R_org_to_cur*(-R_cur_to_ref.t()*t_cur_to_ref_in_cur);
-                R_org_to_cur = R_org_to_cur*R_cur_to_ref.t();
-                cv::Matx34d Rt_cur_to_ref_modified;
-                cv::hconcat(R_cur_to_ref.t(), t_cur_to_ref_in_cur, Rt_cur_to_ref_modified);
+                auto R_ref_to_cur = R_cur_to_ref.t();
+                t_org_to_cur_in_org += R_org_to_cur*(-R_ref_to_cur*t_cur_to_ref_in_cur);
+                R_org_to_cur = R_org_to_cur*R_ref_to_cur;
 
                 cv::Mat pts_4d_in_ref;
 
@@ -151,17 +150,15 @@ namespace shslam
                 {
                     auto pts_element = pts_4d_in_ref(cv::Rect(0, row, pts_4d_in_ref.cols, 1));
                     cv::divide(pts_element, pts_scales, pts_element);
-                    //pts_element = -1*pts_element;
                 }
                 pts_scales = cv::Mat::ones(pts_scales.rows, pts_scales.cols, pts_scales.type());
 
                 cv::Mat_<float> T_cur_to_ref;
                 cv::Mat Rt_cur_to_ref_float(Rt_cur_to_ref);
                 Rt_cur_to_ref_float.convertTo(Rt_cur_to_ref_float, T_cur_to_ref.type());
-                cv::vconcat(Rt_cur_to_ref_float, cv::Matx14f{0.0, 0.0, 0.0, 1.0}, T_cur_to_ref);
+                cv::Matx14f T_4th_row{0.0, 0.0, 0.0, 1.0};
+                cv::vconcat(Rt_cur_to_ref_float, T_4th_row, T_cur_to_ref);
                 T_cur_to_ref = T_cur_to_ref.inv();
-                std::cout<<T_cur_to_ref<<std::endl;
-                printf("%d %d %d %d\n", T_cur_to_ref.cols, T_cur_to_ref.type(), pts_4d_in_ref.rows, pts_4d_in_ref.type());
                 cv::Mat pts_4d_on_cur = T_cur_to_ref*pts_4d_in_ref;
                 cv::Mat pts_3d_on_cur = pts_4d_on_cur(cv::Rect(0, 0, pts_4d_in_ref.cols, 3));
 
