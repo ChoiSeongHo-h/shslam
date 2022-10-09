@@ -83,7 +83,8 @@ namespace shslam
             mono_cam_ptrs[i_th]->AssociateBuffers
             (
                 &input_buffers_ptr->mono_imgs[i_th],
-                &output_buffers_ptr->mono_imgs[i_th]
+                &output_buffers_ptr->mono_imgs[i_th],
+                &output_buffers_ptr->monocam_pcs[i_th]
             );
         }
     }

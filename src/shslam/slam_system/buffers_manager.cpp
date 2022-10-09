@@ -27,6 +27,8 @@ namespace shslam
         input_buffers_ptr->mono_imgs.resize(num_sensors_ptr->mono_cams);
         output_buffers_ptr->mono_imgs.clear();
         output_buffers_ptr->mono_imgs.resize(num_sensors_ptr->mono_cams);
+        output_buffers_ptr->monocam_pcs.clear();
+        output_buffers_ptr->monocam_pcs.resize(num_sensors_ptr->mono_cams);
         printf("buffers of Mono cameras : %ld\n", input_buffers_ptr->mono_imgs.size());
     }
 }

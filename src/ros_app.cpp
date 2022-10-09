@@ -5,6 +5,7 @@ std::shared_ptr<shslam::InputBuffers> input_buffers_ptr;
 std::shared_ptr<shslam::OutputBuffers> output_buffers_ptr;
 image_transport::Publisher img0_pub;
 image_transport::Publisher img1_pub;
+ros::Publisher pc0_pub;
 
 void CallbackImg0(const sensor_msgs::CompressedImageConstPtr& msg)
 {
@@ -23,11 +24,7 @@ void Visualize()
 {  
     while (true)
     {
-        if(output_buffers_ptr->mono_imgs[0].empty() && output_buffers_ptr->mono_imgs[1].empty())
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            continue;
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         if(!output_buffers_ptr->mono_imgs[0].empty())
         {
@@ -41,6 +38,23 @@ void Visualize()
             img1_pub.publish(msg);
             output_buffers_ptr->mono_imgs[1].pop();
         }
+        if(!output_buffers_ptr->monocam_pcs[0].empty())
+        {
+            sensor_msgs::PointCloud msg;
+            msg.header = std_msgs::Header();
+            msg.header.frame_id = std::string("car0");
+            msg.points.resize(output_buffers_ptr->monocam_pcs[0].front().second.cols);
+            for(auto n = 0; n<msg.points.size(); ++n)
+            {
+                msg.points[n].x = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(0, n);
+                msg.points[n].y = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(1, n);
+                msg.points[n].z = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(2, n);
+            }
+            pc0_pub.publish(msg);
+
+            output_buffers_ptr->monocam_pcs[0].pop();
+        }
+        
 
     }
 }
@@ -52,6 +66,7 @@ int main(int argc, char **argv)
     image_transport::ImageTransport it(node_handle);
     img0_pub = it.advertise("output_image0", 1);
     img1_pub = it.advertise("output_image1", 1);
+    pc0_pub = node_handle.advertise<sensor_msgs::PointCloud>("output_pointcloud0", 1);
 
     shslam::SlamSystem slam_system;
     slam_system.InitBy(std::string("/home/csh/catkin_ws/src/shslam/config/config.yaml"));

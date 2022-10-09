@@ -13,5 +13,6 @@ namespace shslam
     struct OutputBuffers
     {
         std::vector<std::queue<std::pair<uint64_t, cv::Mat>>> mono_imgs;
+        std::vector<std::queue<std::pair<uint64_t, cv::Mat>>> monocam_pcs;
     };
 }

@@ -27,8 +27,9 @@ namespace shslam
 
         void AssociateBuffers
         (
-            std::queue<std::pair<uint64_t, cv::Mat>>* input_buffers_ptr,
-            std::queue<std::pair<uint64_t, cv::Mat>>* output_buffers_ptr
+            std::queue<std::pair<uint64_t, cv::Mat>>* input_img_buffers_ptr,
+            std::queue<std::pair<uint64_t, cv::Mat>>* output_img_buffers_ptr,
+            std::queue<std::pair<uint64_t, cv::Mat>>* output_pc_buffers_ptr
         );
 
 
@@ -40,7 +41,7 @@ namespace shslam
             uint64_t time_now,
             const std::vector<uchar>& is_features_passed_tests,
             cv::Mat& img_color,
-            const std::vector<cv::Point2f>& current_features_raw
+            const std::vector<cv::Point2f>& cur_features_raw
         );
 
         void CalcInitPose
@@ -48,9 +49,8 @@ namespace shslam
             bool& is_passed_this_test,
             std::vector<uchar>& is_features_passed_tests,
             cv::Matx33d& E,
-            std::vector<cv::Point2f>& current_features,
-            cv::Matx33d &R_ref_to_cur,
-            cv::Matx31d &t_ref_to_cur
+            std::vector<cv::Point2f>& cur_features,
+            cv::Matx34d &Rt_ref_to_cur_in_ref
         );
 
         void CalcE
@@ -58,7 +58,7 @@ namespace shslam
             bool& is_passed_this_test,
             std::vector<uchar>& is_features_passed_tests,
             cv::Matx33d& E,
-            std::vector<cv::Point2f>& current_features
+            std::vector<cv::Point2f>& cur_features
         );
 
         void ReorderFeatures
@@ -67,24 +67,29 @@ namespace shslam
             const std::vector<std::vector<cv::Point2f>*>& features_ptrs
         );
 
-        void GetInitPose(cv::Matx33d& R_ref_to_cur, cv::Matx31d& t_ref_to_cur);
+        void GetInitPose
+        (
+            cv::Matx34d& Rt_ref_to_cur_in_ref, 
+            std::vector<cv::Point2f>& cur_features,
+            bool& is_received_init_pose
+        );
 
-        void TrackCurrnetFeaturesRaw
+        void TrackCurrnetFeatures
         (
             bool& is_passed_this_test, 
-            std::vector<cv::Point2f>& current_pts_raw, 
-            std::vector<cv::Point2f>& current_features, 
+            std::vector<cv::Point2f>& cur_features_raw, 
+            std::vector<cv::Point2f>& cur_features, 
             const cv::Mat& img
         );
 
         void ResizeImg(const std::pair<uint64_t, cv::Mat>& original, cv::Mat &resized, cv::Mat& color);
-
 
         void GetQuaternion(const cv::Matx33d& R, double* Q);
 
         std::unique_ptr<RefInfo> ref_info_ptr;                    
         std::queue<std::pair<uint64_t, cv::Mat>>* input_img_buf_ptr;
         std::queue<std::pair<uint64_t, cv::Mat>>* output_img_buf_ptr;
+        std::queue<std::pair<uint64_t, cv::Mat>>* output_pc_buf_ptr;
         bool is_initialized;
 
         const int32_t kIdx;
@@ -100,8 +105,8 @@ namespace shslam
         const double kLMedSProp;
         const int32_t kMinFeaturesPassedE;
 
-        cv::Matx33d accR;
-        cv::Matx31d act;
+        cv::Matx33d R_org_to_cur;
+        cv::Matx31d t_org_to_cur_in_org;
 
 
     
