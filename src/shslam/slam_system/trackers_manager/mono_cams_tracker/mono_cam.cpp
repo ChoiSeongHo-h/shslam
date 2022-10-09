@@ -65,9 +65,9 @@ namespace shslam
         0.0)
     }
     {
-        printf("width ( resizing applied ) : %d\n", kWidth);
-        printf("height ( resizing applied ) : %d\n", kHeight);
-        printf("camera matrix ( resizing applied ) : \n");
+        printf("width ( resized ) : %d\n", kWidth);
+        printf("height ( resized ) : %d\n", kHeight);
+        printf("camera matrix ( resized ) : \n");
         std::cout<<kCamMat<<std::endl;
         printf("distortion coefficient : \n");
         std::cout<<kDistCoeffs<<std::endl;
@@ -120,14 +120,14 @@ namespace shslam
             is_initialized = false;
             if(!is_initialized)
             {
-                cv::Matx34d Rt_ref_to_cur;
+                cv::Matx34d Rt_cur_to_ref;
                 std::vector<cv::Point2f> cur_features;
                 bool is_received_init_pose = false;
-                GetInitPose(Rt_ref_to_cur, cur_features, is_received_init_pose);
+                GetInitPose(Rt_cur_to_ref, cur_features, is_received_init_pose);
                 if(!is_received_init_pose)
                     continue;
 
-                cv::Matx34d Rt_ref
+                cv::Matx34d Rt_ref_to_ref
                 (
                     1.0, 0.0, 0.0, 0.0,
                     0.0, 1.0, 0.0, 0.0,
@@ -136,29 +136,29 @@ namespace shslam
 
                 is_initialized = true;
 
-                auto R_ref_to_cur = Rt_ref_to_cur.get_minor<3, 3>(0, 0);
-                auto t_ref_to_cur_in_ref = Rt_ref_to_cur.get_minor<3, 1>(0, 3);
-                t_org_to_cur_in_org = t_org_to_cur_in_org + R_org_to_cur*t_ref_to_cur_in_ref;
-                R_org_to_cur = R_org_to_cur*R_ref_to_cur;
-                cv::Matx34d Rt_ref_to_cur_modified;
-                cv::hconcat(R_ref_to_cur.t(), t_ref_to_cur_in_ref, Rt_ref_to_cur_modified);
+                auto R_cur_to_ref = Rt_cur_to_ref.get_minor<3, 3>(0, 0);
+                auto t_cur_to_ref_in_cur = Rt_cur_to_ref.get_minor<3, 1>(0, 3);
+                t_org_to_cur_in_org += R_org_to_cur*(-R_cur_to_ref.t()*t_cur_to_ref_in_cur);
+                R_org_to_cur = R_org_to_cur*R_cur_to_ref.t();
+                cv::Matx34d Rt_cur_to_ref_modified;
+                cv::hconcat(R_cur_to_ref.t(), t_cur_to_ref_in_cur, Rt_cur_to_ref_modified);
 
                 cv::Mat pts_4d_in_ref;
 
-                cv::triangulatePoints(Rt_ref, Rt_ref_to_cur, ref_info_ptr->features, cur_features, pts_4d_in_ref);
+                cv::triangulatePoints(Rt_ref_to_ref, Rt_cur_to_ref, ref_info_ptr->features, cur_features, pts_4d_in_ref);
                 cv::Mat pts_scales = pts_4d_in_ref(cv::Rect(0, 3, pts_4d_in_ref.cols, 1));
                 for(auto row = 0; row<3; ++row)
                 {
                     auto pts_element = pts_4d_in_ref(cv::Rect(0, row, pts_4d_in_ref.cols, 1));
                     cv::divide(pts_element, pts_scales, pts_element);
-                    pts_element = -1*pts_element;
+                    //pts_element = -1*pts_element;
                 }
                 pts_scales = cv::Mat::ones(pts_scales.rows, pts_scales.cols, pts_scales.type());
 
                 cv::Mat_<float> T_cur_to_ref;
-                cv::Mat Rt_ref_to_cur_float(Rt_ref_to_cur);
-                Rt_ref_to_cur_float.convertTo(Rt_ref_to_cur_float, T_cur_to_ref.type());
-                cv::vconcat(Rt_ref_to_cur_float, cv::Matx14f{0.0, 0.0, 0.0, 1.0}, T_cur_to_ref);
+                cv::Mat Rt_cur_to_ref_float(Rt_cur_to_ref);
+                Rt_cur_to_ref_float.convertTo(Rt_cur_to_ref_float, T_cur_to_ref.type());
+                cv::vconcat(Rt_cur_to_ref_float, cv::Matx14f{0.0, 0.0, 0.0, 1.0}, T_cur_to_ref);
                 T_cur_to_ref = T_cur_to_ref.inv();
                 std::cout<<T_cur_to_ref<<std::endl;
                 printf("%d %d %d %d\n", T_cur_to_ref.cols, T_cur_to_ref.type(), pts_4d_in_ref.rows, pts_4d_in_ref.type());
@@ -195,7 +195,7 @@ namespace shslam
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetInitPose
     (
-        cv::Matx34d& Rt_ref_to_cur, 
+        cv::Matx34d& Rt_cur_to_ref, 
         std::vector<cv::Point2f>& cur_features,
         bool& is_received_init_pose
     )
@@ -226,7 +226,7 @@ namespace shslam
 
         is_passed_this_test = false;
         CalcInitPose
-        (is_passed_this_test, is_features_passed_tests, E, cur_features, Rt_ref_to_cur);
+        (is_passed_this_test, is_features_passed_tests, E, cur_features, Rt_cur_to_ref);
         if(!is_passed_this_test)
             return;
         
@@ -309,8 +309,8 @@ namespace shslam
     {
         E = cv::findEssentialMat
         (
-            cur_features, 
             ref_info_ptr->features, 
+            cur_features, 
             1.0, 
             cv::Point2f(0, 0), 
             cv::LMEDS, 
@@ -337,23 +337,23 @@ namespace shslam
         std::vector<uchar>& is_features_passed_tests,
         cv::Matx33d& E,
         std::vector<cv::Point2f>& cur_features,
-        cv::Matx34d& Rt_ref_to_cur
+        cv::Matx34d& Rt_cur_to_ref
     )
     {
-        cv::Matx33d R_ref_to_cur;
-        cv::Matx31d t_ref_to_cur_in_ref;
+        cv::Matx33d R_cur_to_ref;
+        cv::Matx31d t_cur_to_ref_in_cur;
         cv::recoverPose
         (
             E,
-            cur_features,
             ref_info_ptr->features, 
-            R_ref_to_cur, 
-            t_ref_to_cur_in_ref,
+            cur_features,
+            R_cur_to_ref, 
+            t_cur_to_ref_in_cur,
             1.0, 
             cv::Point2f(0, 0), 
             is_features_passed_tests
         );
-        bool has_wrong_R = R_ref_to_cur(0,0) < 0 || R_ref_to_cur(1,1) < 0 || R_ref_to_cur(2,2) < 0;
+        bool has_wrong_R = R_cur_to_ref(0,0) < 0 || R_cur_to_ref(1,1) < 0 || R_cur_to_ref(2,2) < 0;
         if(has_wrong_R)
         {
             is_passed_this_test = false;
@@ -365,7 +365,7 @@ namespace shslam
         {&ref_info_ptr->features, &cur_features};
         ReorderFeatures(is_features_passed_tests, features_want_reordering_ptrs);
         printf("test pose : %ld\n", cur_features.size());
-        cv::hconcat(R_ref_to_cur, t_ref_to_cur_in_ref, Rt_ref_to_cur);
+        cv::hconcat(R_cur_to_ref, t_cur_to_ref_in_cur, Rt_cur_to_ref);
     }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::DrawInitOF

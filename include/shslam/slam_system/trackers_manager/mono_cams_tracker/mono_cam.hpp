@@ -50,7 +50,7 @@ namespace shslam
             std::vector<uchar>& is_features_passed_tests,
             cv::Matx33d& E,
             std::vector<cv::Point2f>& cur_features,
-            cv::Matx34d &Rt_ref_to_cur_in_ref
+            cv::Matx34d &Rt_cur_to_ref
         );
 
         void CalcE
@@ -69,7 +69,7 @@ namespace shslam
 
         void GetInitPose
         (
-            cv::Matx34d& Rt_ref_to_cur_in_ref, 
+            cv::Matx34d& Rt_cur_to_ref, 
             std::vector<cv::Point2f>& cur_features,
             bool& is_received_init_pose
         );
