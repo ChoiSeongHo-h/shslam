@@ -52,6 +52,7 @@ namespace shslam
             std::vector<uchar>& is_features_passed_tests,
             cv::Matx33d& E,
             std::vector<cv::Point2f>& cur_features,
+            std::vector<cv::Point2f>& cur_features_raw,
             cv::Matx34d &Rt_cur_to_ref
         );
 
@@ -63,10 +64,11 @@ namespace shslam
             std::vector<cv::Point2f>& cur_features
         );
 
-        void ReorderFeatures
+        void RmOutliersForFeaturesAndPts
         (
             const std::vector<uchar>& is_features_passed_test, 
-            const std::vector<std::vector<cv::Point2f>*>& features_ptrs
+            const std::vector<std::vector<cv::Point2f>*>& features_ptrs,
+            const std::vector<cv::Mat*>& pts_ptrs
         );
 
         void GetInitPose
@@ -109,6 +111,7 @@ namespace shslam
 
         cv::Matx33d R_org_to_cur;
         cv::Matx31d t_org_to_cur_in_org;
+        cv::Mat pts_4d_in_org;
 
 
     

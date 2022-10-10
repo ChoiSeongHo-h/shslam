@@ -117,7 +117,6 @@ namespace shslam
                 continue;
             }
 //
-            is_initialized = false;
             if(!is_initialized)
             {
                 cv::Matx34d Rt_cur_to_ref;
@@ -127,7 +126,6 @@ namespace shslam
                 if(!is_received_init_pose)
                     continue;
 
-                is_initialized = true;
 
                 cv::Matx34d Rt_ref_to_ref
                 (
@@ -165,15 +163,57 @@ namespace shslam
                 cv::hconcat(R_org_to_prev_float, t_org_to_prev_in_org_float, Rt_org_to_prev);
                 cv::Matx14f T_4th_row{0.0, 0.0, 0.0, 1.0};
                 cv::vconcat(Rt_org_to_prev, T_4th_row, T_org_to_prev);
-                cv::Mat pts_4d_on_cur = T_org_to_prev*pts_4d_in_ref;
-                cv::Mat pts_3d_on_cur = pts_4d_on_cur(cv::Rect(0, 0, pts_4d_in_ref.cols, 3));
+                pts_4d_in_org = T_org_to_prev*pts_4d_in_ref;
+                cv::Mat pts_3d_in_org = pts_4d_in_org(cv::Rect(0, 0, pts_4d_in_org.cols, 3));
 
-                output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts_3d_on_cur.clone()));
+                output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts_3d_in_org.clone()));
 
 
-                ref_info_ptr->Clear();
-
+                is_initialized = true;
+                continue;
             }        
+
+            //--------------------------------------------------------
+
+            std::vector<cv::Point2f> cur_features;
+            cv::Mat img, img_color;
+            uint64_t time_now = input_img_buf_ptr->front().first;
+            ResizeImg(input_img_buf_ptr->front(), img, img_color);
+            input_img_buf_ptr->pop();
+
+            std::vector<cv::Point2f> cur_features_raw;
+            std::vector<uchar> is_features_passed_OF;
+            std::vector<float> err;
+            cv::calcOpticalFlowPyrLK
+            (
+                ref_info_ptr->img, 
+                img,
+                ref_info_ptr->features_raw,
+                cur_features_raw,
+                is_features_passed_OF,
+                err,
+                cv::Size(kOFPatchSz, kOFPatchSz),
+                kOFPyrLv
+            );
+
+            std::vector<std::vector<cv::Point2f>*> features_want_reordering_ptrs
+            {&ref_info_ptr->features_raw, &ref_info_ptr->features, &cur_features_raw};
+            std::vector<cv::Mat*> pts_want_reordering_ptrs{&pts_4d_in_org};
+            RmOutliersForFeaturesAndPts(is_features_passed_OF, features_want_reordering_ptrs, pts_want_reordering_ptrs);
+            cv::Mat pts_3d_in_org = pts_4d_in_org(cv::Rect(0, 0, pts_4d_in_org.cols, 3));
+            cv::Mat r, t;
+            std::vector<uchar> is_inliers;
+            cv::solvePnPRansac(pts_3d_in_org, cur_features_raw, kCamMat, kDistCoeffs, r, t_org_to_cur_in_org, false, 10, 10.0, 0.95, is_inliers, cv::SOLVEPNP_ITERATIVE);
+            cv::Rodrigues(r, R_org_to_cur);
+
+            SendPose();
+            DrawInitOF(time_now, std::vector<uchar>(), img_color, cur_features_raw);
+            output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts_3d_in_org.clone()));
+            printf("is ok??\n");
+
+
+            is_initialized = false;
+            ref_info_ptr->Clear();
         }
     }
 
@@ -222,20 +262,20 @@ namespace shslam
             return;
 
         is_passed_this_test = false;
-        std::vector<uchar> is_features_passed_tests;
+        std::vector<uchar> is_inliers;
         cv::Matx33d E;
-        CalcE(is_passed_this_test, is_features_passed_tests, E, cur_features);
+        CalcE(is_passed_this_test, is_inliers, E, cur_features);
         if(!is_passed_this_test)
             return;
 
         is_passed_this_test = false;
         CalcInitPose
-        (is_passed_this_test, is_features_passed_tests, E, cur_features, Rt_cur_to_ref);
+        (is_passed_this_test, is_inliers, E, cur_features, cur_features_raw, Rt_cur_to_ref);
         if(!is_passed_this_test)
             return;
         
         if(kWantVisualize)
-            DrawInitOF(time_now, is_features_passed_tests, img_color, cur_features_raw);
+            DrawInitOF(time_now, is_inliers, img_color, cur_features_raw);
 
         is_received_init_pose = true;
     }
@@ -264,7 +304,8 @@ namespace shslam
 
         std::vector<std::vector<cv::Point2f>*> features_want_reordering_ptrs
         {&ref_info_ptr->features_raw, &ref_info_ptr->features, &cur_features_raw};
-        ReorderFeatures(is_features_passed_OF, features_want_reordering_ptrs);
+        std::vector<cv::Mat*> empty_pts_ptrs;
+        RmOutliersForFeaturesAndPts(is_features_passed_OF, features_want_reordering_ptrs, empty_pts_ptrs);
 
         double mean_disparity = 0.0;
         auto num_features = ref_info_ptr->features_raw.size();
@@ -283,10 +324,11 @@ namespace shslam
         printf("test OF : %ld, dist %f\n", cur_features_raw.size(), mean_disparity);
     }
 
-    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::ReorderFeatures
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RmOutliersForFeaturesAndPts
     (
-        const std::vector<uchar> &is_features_passed_test, 
-        const std::vector<std::vector<cv::Point2f>*>& features_ptrs
+        const std::vector<uchar>& is_features_passed_test, 
+        const std::vector<std::vector<cv::Point2f>*>& features_ptrs,
+        const std::vector<cv::Mat*>& pts_ptrs
     )
     {
         auto num_test_passed = 0;
@@ -297,16 +339,26 @@ namespace shslam
 
             for(auto& features_ptr : features_ptrs)
                 (*features_ptr)[num_test_passed] = (*features_ptr)[idx];
+
+            for(auto& pts_ptr : pts_ptrs)
+            {
+                for(auto row = 0; row < pts_ptr->rows; ++row)
+                    pts_ptr->at<float>(row, num_test_passed) = pts_ptr->at<float>(row, idx);
+            }
+            
             ++num_test_passed;
         }
         for(auto& features_ptr : features_ptrs)
-            (*features_ptr).resize(num_test_passed);
+            features_ptr->resize(num_test_passed);
+
+        for(auto& pts_ptr : pts_ptrs)
+            *pts_ptr = (*pts_ptr)(cv::Rect(0, 0, num_test_passed, pts_ptr->rows));
     }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::CalcE
     (
         bool& is_passed_this_test,
-        std::vector<uchar>& is_features_passed_tests,
+        std::vector<uchar>& is_inliers,
         cv::Matx33d& E,
         std::vector<cv::Point2f>& cur_features
     )
@@ -320,10 +372,10 @@ namespace shslam
             cv::LMEDS, 
             kLMedSProp, 
             1.0, 
-            is_features_passed_tests
+            is_inliers
         );
         auto num_features_passed_E = std::accumulate
-        (is_features_passed_tests.begin(), is_features_passed_tests.end(), 0);
+        (is_inliers.begin(), is_inliers.end(), 0);
         if(num_features_passed_E < kMinFeaturesPassedE)
         {
             ref_info_ptr->Clear();
@@ -338,9 +390,10 @@ namespace shslam
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::CalcInitPose
     (
         bool& is_passed_this_test, 
-        std::vector<uchar>& is_features_passed_tests,
+        std::vector<uchar>& is_inliers,
         cv::Matx33d& E,
         std::vector<cv::Point2f>& cur_features,
+        std::vector<cv::Point2f>& cur_features_raw,
         cv::Matx34d& Rt_cur_to_ref
     )
     {
@@ -355,7 +408,7 @@ namespace shslam
             t_cur_to_ref_in_cur,
             1.0, 
             cv::Point2f(0, 0), 
-            is_features_passed_tests
+            is_inliers
         );
         bool has_wrong_R = R_cur_to_ref(0,0) < 0 || R_cur_to_ref(1,1) < 0 || R_cur_to_ref(2,2) < 0;
         if(has_wrong_R)
@@ -366,8 +419,9 @@ namespace shslam
 
         is_passed_this_test = true;
         std::vector<std::vector<cv::Point2f>*> features_want_reordering_ptrs
-        {&ref_info_ptr->features, &cur_features};
-        ReorderFeatures(is_features_passed_tests, features_want_reordering_ptrs);
+        {&ref_info_ptr->features, &ref_info_ptr->features_raw, &cur_features, &cur_features_raw};
+        std::vector<cv::Mat*> empty_pts_ptrs;
+        RmOutliersForFeaturesAndPts(is_inliers, features_want_reordering_ptrs, empty_pts_ptrs);
         printf("test pose : %ld\n", cur_features.size());
         cv::hconcat(R_cur_to_ref, t_cur_to_ref_in_cur, Rt_cur_to_ref);
     }
@@ -375,16 +429,13 @@ namespace shslam
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::DrawInitOF
     (
         uint64_t time_now,
-        const std::vector<uchar>& is_features_passed_tests,
+        const std::vector<uchar>& is_inliers,
         cv::Mat& img_color,
         const std::vector<cv::Point2f>& cur_features_raw
     )
     {
         for (int idx = 0; idx < ref_info_ptr->features_raw.size(); ++idx)
         {
-            if(is_features_passed_tests[idx] == 0)
-                continue;
-
             cv::arrowedLine
             (
                 img_color, 
