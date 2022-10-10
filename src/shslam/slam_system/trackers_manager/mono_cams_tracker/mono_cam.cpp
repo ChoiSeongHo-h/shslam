@@ -127,6 +127,8 @@ namespace shslam
                 if(!is_received_init_pose)
                     continue;
 
+                is_initialized = true;
+
                 cv::Matx34d Rt_ref_to_ref
                 (
                     1.0, 0.0, 0.0, 0.0,
@@ -134,13 +136,13 @@ namespace shslam
                     0.0, 0.0, 1.0, 0.0
                 );
 
-                is_initialized = true;
-
                 auto R_cur_to_ref = Rt_cur_to_ref.get_minor<3, 3>(0, 0);
                 auto t_cur_to_ref_in_cur = Rt_cur_to_ref.get_minor<3, 1>(0, 3);
                 auto R_ref_to_cur = R_cur_to_ref.t();
-                t_org_to_cur_in_org += R_org_to_cur*(-R_ref_to_cur*t_cur_to_ref_in_cur);
-                R_org_to_cur = R_org_to_cur*R_ref_to_cur;
+                cv::Matx33d& R_org_to_prev = R_org_to_cur;
+                t_org_to_cur_in_org += R_org_to_prev * (-R_ref_to_cur * t_cur_to_ref_in_cur);
+                R_org_to_cur = R_org_to_prev * R_ref_to_cur;
+                auto R_cur_to_ref = Rt_cur_to_ref.get_minor<3, 3>(0, 0);
 
                 cv::Mat pts_4d_in_ref;
 
@@ -158,36 +160,37 @@ namespace shslam
                 Rt_cur_to_ref_float.convertTo(Rt_cur_to_ref_float, T_cur_to_ref.type());
                 cv::Matx14f T_4th_row{0.0, 0.0, 0.0, 1.0};
                 cv::vconcat(Rt_cur_to_ref_float, T_4th_row, T_cur_to_ref);
-                T_cur_to_ref = T_cur_to_ref.inv();
                 cv::Mat pts_4d_on_cur = T_cur_to_ref*pts_4d_in_ref;
                 cv::Mat pts_3d_on_cur = pts_4d_on_cur(cv::Rect(0, 0, pts_4d_in_ref.cols, 3));
 
                 output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts_3d_on_cur.clone()));
 
-                double qq[4];
-                GetQuaternion(R_org_to_cur, qq);
-                static tf::TransformBroadcaster pos_pub;
-                tf::Transform transform;
-                //transform.setOrigin( tf::Vector3(0.0, 0.0, 0.0));
-                transform.setOrigin( tf::Vector3(t_org_to_cur_in_org(0,0), t_org_to_cur_in_org(1,0), t_org_to_cur_in_org(2,0)) );
-                tf::Quaternion q;
-                q.setW(qq[3]);
-                q.setX(qq[0]);
-                q.setY(qq[1]);
-                q.setZ(qq[2]);
-                transform.setRotation(q);
-
-                auto node = std::string("car");
-                auto std_idx = std::to_string(kIdx);
-                pos_pub.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", node+std_idx));
-
-
-
+                SendPose();
 
                 ref_info_ptr->Clear();
 
             }        
         }
+    }
+
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::SendPose()
+    {
+        double qq[4];
+        GetQuaternion(R_org_to_cur, qq);
+        static tf::TransformBroadcaster pos_pub;
+        tf::Transform transform;
+        //transform.setOrigin( tf::Vector3(0.0, 0.0, 0.0));
+        transform.setOrigin( tf::Vector3(t_org_to_cur_in_org(0,0), t_org_to_cur_in_org(1,0), t_org_to_cur_in_org(2,0)) );
+        tf::Quaternion q;
+        q.setW(qq[3]);
+        q.setX(qq[0]);
+        q.setY(qq[1]);
+        q.setZ(qq[2]);
+        transform.setRotation(q);
+
+        auto node = std::string("car");
+        auto std_idx = std::to_string(kIdx);
+        pos_pub.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", node+std_idx));
     }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::GetInitPose
