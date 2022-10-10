@@ -10,20 +10,20 @@ namespace shslam
 {
     SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::RefInfo
     (
-        const int32_t max_features,
+        const int32_t max_pts2d,
         const double rejection_ratio,
-        const double min_features_gap,
-        const int32_t min_ref_features
+        const double min_pts2d_gap,
+        const int32_t min_ref_pts2d
     ) :
-    kMaxFeatures(max_features),
+    kMaxPts2d(max_pts2d),
     kRejectionRatio(rejection_ratio),
-    kMinFeaturesGap(min_features_gap),
-    kMinRefFeatures(min_ref_features)
+    kMinPts2dGap(min_pts2d_gap),
+    kMinRefPts2d(min_ref_pts2d)
     {
-        printf("    max finding features : %d\n", kMaxFeatures);
+        printf("    max finding features : %d\n", kMaxPts2d);
         printf("    bad features rejection ratio : %f\n", kRejectionRatio);
-        printf("    min features gap : %f\n", kMinFeaturesGap);
-        printf("    min reference features : %d\n", kMinRefFeatures);
+        printf("    min features gap : %f\n", kMinPts2dGap);
+        printf("    min reference features : %d\n", kMinRefPts2d);
     }
 
     bool SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::IsEmpty()
@@ -39,7 +39,7 @@ namespace shslam
         time = -1;
     }
 
-    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::GetFeatures
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::GetPts2d
     (
         const uint64_t& time_now,
         const cv::Mat& img,
@@ -47,13 +47,13 @@ namespace shslam
         const cv::Matx<double, 1, 5>& kDistCoeffs
     )
     {
-        goodFeaturesToTrack(img, features_raw, kMaxFeatures, kRejectionRatio, kMinFeaturesGap);
-        if(features_raw.size() < kMinRefFeatures)
+        goodFeaturesToTrack(img, pts2d_raw, kMaxPts2d, kRejectionRatio, kMinPts2dGap);
+        if(pts2d_raw.size() < kMinRefPts2d)
             return;
             
         time = time_now;
         this->img = std::move(img);
-        cv::undistortPoints(features_raw, features, kCamMat, kDistCoeffs);
+        cv::undistortPoints(pts2d_raw, pts2d, kCamMat, kDistCoeffs);
     }
 
 }

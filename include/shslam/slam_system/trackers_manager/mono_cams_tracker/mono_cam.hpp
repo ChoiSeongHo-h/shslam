@@ -12,15 +12,15 @@ namespace shslam
             const cv::Matx<double, 1, 5>& dist_coeffs,
             const bool want_visualize,
             const double resizing_ratio,
-            const int32_t max_features,
+            const int32_t max_pts2d,
             const double rejection_ratio,
-            const int32_t min_ref_features,
-            const double min_features_gap,
+            const int32_t min_ref_pts2d,
+            const double min_pts2d_gap,
             const int32_t OF_patch_sz,
             const int32_t OF_pyr_lv,
             const double min_disparity,
             const double min_prop,
-            const int32_t min_features_passed_E
+            const int32_t min_pts2d_passed_E
         );
 
         void Track();
@@ -41,48 +41,48 @@ namespace shslam
         void DrawInitOF
         (
             uint64_t time_now,
-            const std::vector<uchar>& is_features_passed_tests,
+            const std::vector<uchar>& is_pts2d_passed_tests,
             cv::Mat& img_color,
-            const std::vector<cv::Point2f>& cur_features_raw
+            const std::vector<cv::Point2f>& cur_pts2d_raw
         );
 
         void CalcInitPose
         (
             bool& is_passed_this_test,
-            std::vector<uchar>& is_features_passed_tests,
+            std::vector<uchar>& is_pts2d_passed_tests,
             cv::Matx33d& E,
-            std::vector<cv::Point2f>& cur_features,
-            std::vector<cv::Point2f>& cur_features_raw,
+            std::vector<cv::Point2f>& cur_pts2d,
+            std::vector<cv::Point2f>& cur_pts2d_raw,
             cv::Matx34d &Rt_cur_to_ref
         );
 
         void CalcE
         (
             bool& is_passed_this_test,
-            std::vector<uchar>& is_features_passed_tests,
+            std::vector<uchar>& is_pts2d_passed_tests,
             cv::Matx33d& E,
-            std::vector<cv::Point2f>& cur_features
+            std::vector<cv::Point2f>& cur_pts2d
         );
 
-        void RmOutliersForFeaturesAndPts
+        void RmOutliersForPts
         (
-            const std::vector<uchar>& is_features_passed_test, 
-            const std::vector<std::vector<cv::Point2f>*>& features_ptrs,
-            const std::vector<cv::Mat*>& pts_ptrs
+            const std::vector<uchar>& is_pts2d_passed_test, 
+            const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
+            const std::vector<cv::Mat*>& mat_pts_ptrs
         );
 
         void GetInitPose
         (
             cv::Matx34d& Rt_cur_to_ref, 
-            std::vector<cv::Point2f>& cur_features,
+            std::vector<cv::Point2f>& cur_pts2d,
             bool& is_received_init_pose
         );
 
-        void TrackCurrnetFeatures
+        void TrackCurrnetPts2d
         (
             bool& is_passed_this_test, 
-            std::vector<cv::Point2f>& cur_features_raw, 
-            std::vector<cv::Point2f>& cur_features, 
+            std::vector<cv::Point2f>& cur_pts2d_raw, 
+            std::vector<cv::Point2f>& cur_pts2d, 
             const cv::Mat& img
         );
 
@@ -107,11 +107,11 @@ namespace shslam
         const int32_t kOFPyrLv;
         const double kMinDisparity;
         const double kLMedSProp;
-        const int32_t kMinFeaturesPassedE;
+        const int32_t kMinPts2dPassedE;
 
         cv::Matx33d R_org_to_cur;
         cv::Matx31d t_org_to_cur_in_org;
-        cv::Mat pts_4d_in_org;
+        cv::Mat pts4d_in_org;
 
 
     

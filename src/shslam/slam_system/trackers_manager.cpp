@@ -43,18 +43,18 @@ namespace shslam
             std::vector<cv::Matx<double, 1, 5>> dist_coeffs_vec;
             std::vector<bool> want_visualize_vec;
             std::vector<double> resizing_ratio_vec;
-            std::vector<int32_t> max_features_vec;
+            std::vector<int32_t> max_pts2d_vec;
             std::vector<double> rejection_ratio_vec;
 
-            std::vector<int32_t> min_ref_features_vec;
+            std::vector<int32_t> min_ref_pts2d_vec;
 
-            std::vector<double> min_features_gap_vec;
+            std::vector<double> min_pts2d_gap_vec;
             std::vector<int32_t> OF_patch_sz_vec;
             std::vector<int32_t> OF_pyr_lv_vec;
 
             std::vector<double> min_disparity_vec;
             std::vector<double> LMedS_prob_vec;
-            std::vector<int32_t> min_features_passed_E_vec;
+            std::vector<int32_t> min_pts2d_passed_E_vec;
 
 
 
@@ -82,17 +82,17 @@ namespace shslam
                 auto want_visualize = config["mono_cameras"][i_th]["want_to_visualize"].as<bool>();
                 want_visualize_vec.emplace_back(want_visualize);
 
-                auto max_features = config["mono_cameras"][i_th]["max_finding_features"].as<int32_t>();
-                max_features_vec.emplace_back(max_features);
+                auto max_pts2d = config["mono_cameras"][i_th]["max_finding_features"].as<int32_t>();
+                max_pts2d_vec.emplace_back(max_pts2d);
 
                 auto rejection_ratio = config["mono_cameras"][i_th]["bad_features_rejection_ratio"].as<double>();
                 rejection_ratio_vec.emplace_back(rejection_ratio);
 
-                auto min_ref_features = config["mono_cameras"][i_th]["min_reference_features"].as<int32_t>();
-                min_ref_features_vec.emplace_back(min_ref_features);
+                auto min_ref_pts2d = config["mono_cameras"][i_th]["min_reference_features"].as<int32_t>();
+                min_ref_pts2d_vec.emplace_back(min_ref_pts2d);
 
-                auto min_features_gap = config["mono_cameras"][i_th]["min_features_gap"].as<double>();
-                min_features_gap_vec.emplace_back(min_features_gap);
+                auto min_pts2d_gap = config["mono_cameras"][i_th]["min_features_gap"].as<double>();
+                min_pts2d_gap_vec.emplace_back(min_pts2d_gap);
 
                 auto OF_patch_sz = config["mono_cameras"][i_th]["opticalflow_patch_size"].as<int32_t>();
                 OF_patch_sz_vec.emplace_back(OF_patch_sz);
@@ -106,8 +106,8 @@ namespace shslam
                 auto LMedS_prob = config["mono_cameras"][i_th]["LMedS_probablity"].as<double>();
                 LMedS_prob_vec.emplace_back(LMedS_prob);
 
-                auto min_features_passed_E = config["mono_cameras"][i_th]["min_features_passed_essential_matrix"].as<double>();
-                min_features_passed_E_vec.emplace_back(min_features_passed_E);
+                auto min_pts2d_passed_E = config["mono_cameras"][i_th]["min_features_passed_essential_matrix"].as<double>();
+                min_pts2d_passed_E_vec.emplace_back(min_pts2d_passed_E);
             }
 
             mono_cams_tracker_ptr->ApplyConfig
@@ -118,15 +118,15 @@ namespace shslam
                 dist_coeffs_vec, 
                 want_visualize_vec, 
                 resizing_ratio_vec,
-                max_features_vec,
+                max_pts2d_vec,
                 rejection_ratio_vec,
-                min_ref_features_vec,
-                min_features_gap_vec,
+                min_ref_pts2d_vec,
+                min_pts2d_gap_vec,
                 OF_patch_sz_vec,
                 OF_pyr_lv_vec,
                 min_disparity_vec,
                 LMedS_prob_vec,
-                min_features_passed_E_vec
+                min_pts2d_passed_E_vec
             );
         }
 

@@ -11,15 +11,15 @@ namespace shslam
             const std::vector<cv::Matx<double, 1, 5>>& dist_coeffs_vec,
             const std::vector<bool>& want_visualize_vec,
             const std::vector<double>& resizing_ratio_vec,
-            const std::vector<int32_t>& max_features_vec,
+            const std::vector<int32_t>& max_pts2d_vec,
             const std::vector<double>& rejection_ratio_vec,
-            const std::vector<int32_t> min_ref_features_vec,
-            const std::vector<double>& min_features_gap_vec,
+            const std::vector<int32_t> min_ref_pts2d_vec,
+            const std::vector<double>& min_pts2d_gap_vec,
             const std::vector<int32_t>& OF_patch_sz_vec,
             const std::vector<int32_t>& OF_pyr_lv_vec,
             const std::vector<double>& min_disparity_vec,
             const std::vector<double>& LMedS_prob_vec,
-            const std::vector<int32_t>& min_features_passed_E_vec
+            const std::vector<int32_t>& min_pts2d_passed_E_vec
         );
 
         void RunTrackingThreads();
