@@ -139,10 +139,11 @@ namespace shslam
                 auto R_cur_to_ref = Rt_cur_to_ref.get_minor<3, 3>(0, 0);
                 auto t_cur_to_ref_in_cur = Rt_cur_to_ref.get_minor<3, 1>(0, 3);
                 auto R_ref_to_cur = R_cur_to_ref.t();
-                cv::Matx33d& R_org_to_prev = R_org_to_cur;
-                t_org_to_cur_in_org += R_org_to_prev * (-R_ref_to_cur * t_cur_to_ref_in_cur);
+                auto R_org_to_prev = R_org_to_cur;
+                auto t_org_to_prev_in_org = t_org_to_cur_in_org;
+                t_org_to_cur_in_org = t_org_to_prev_in_org + R_org_to_prev * (-R_ref_to_cur * t_cur_to_ref_in_cur);
                 R_org_to_cur = R_org_to_prev * R_ref_to_cur;
-                auto R_cur_to_ref = Rt_cur_to_ref.get_minor<3, 3>(0, 0);
+                SendPose();
 
                 cv::Mat pts_4d_in_ref;
 
@@ -155,17 +156,20 @@ namespace shslam
                 }
                 pts_scales = cv::Mat::ones(pts_scales.rows, pts_scales.cols, pts_scales.type());
 
-                cv::Mat_<float> T_cur_to_ref;
-                cv::Mat Rt_cur_to_ref_float(Rt_cur_to_ref);
-                Rt_cur_to_ref_float.convertTo(Rt_cur_to_ref_float, T_cur_to_ref.type());
+                cv::Matx44f T_org_to_prev;
+                cv::Mat R_org_to_prev_float(R_org_to_prev);
+                R_org_to_prev_float.convertTo(R_org_to_prev_float, CV_32FC1);
+                cv::Mat t_org_to_prev_in_org_float(t_org_to_prev_in_org);
+                t_org_to_prev_in_org_float.convertTo(t_org_to_prev_in_org_float, CV_32FC1);
+                cv::Matx34f Rt_org_to_prev;
+                cv::hconcat(R_org_to_prev_float, t_org_to_prev_in_org_float, Rt_org_to_prev);
                 cv::Matx14f T_4th_row{0.0, 0.0, 0.0, 1.0};
-                cv::vconcat(Rt_cur_to_ref_float, T_4th_row, T_cur_to_ref);
-                cv::Mat pts_4d_on_cur = T_cur_to_ref*pts_4d_in_ref;
+                cv::vconcat(Rt_org_to_prev, T_4th_row, T_org_to_prev);
+                cv::Mat pts_4d_on_cur = T_org_to_prev*pts_4d_in_ref;
                 cv::Mat pts_3d_on_cur = pts_4d_on_cur(cv::Rect(0, 0, pts_4d_in_ref.cols, 3));
 
                 output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts_3d_on_cur.clone()));
 
-                SendPose();
 
                 ref_info_ptr->Clear();
 

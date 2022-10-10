@@ -36,6 +36,8 @@ namespace shslam
     private :
         class RefInfo;
 
+        void SendPose();
+        
         void DrawInitOF
         (
             uint64_t time_now,

@@ -42,7 +42,7 @@ void Visualize()
         {
             sensor_msgs::PointCloud msg;
             msg.header = std_msgs::Header();
-            msg.header.frame_id = std::string("car0");
+            msg.header.frame_id = std::string("world");
             msg.points.resize(output_buffers_ptr->monocam_pcs[0].front().second.cols);
             for(auto n = 0; n<msg.points.size(); ++n)
             {
