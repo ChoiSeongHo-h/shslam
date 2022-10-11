@@ -200,16 +200,28 @@ namespace shslam
             {&ref_info_ptr->pts2d_raw, &ref_info_ptr->pts2d, &cur_pts2d_raw};
             std::vector<cv::Mat*> pts4d_want_reordering_ptrs{&pts4d_in_org};
             RmOutliersForPts(is_pts2d_passed_OF, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
-            cv::Mat pts3d_in_org = pts4d_in_org(cv::Rect(0, 0, pts4d_in_org.cols, 3));
-            // cv::Mat r, t;
-            // std::vector<uchar> is_inliers;
-            // cv::solvePnPRansac(pts3d_in_org, cur_pts2d_raw, kCamMat, kDistCoeffs, r, t_org_to_cur_in_org, false, 10, 10.0, 0.95, is_inliers, cv::SOLVEPNP_ITERATIVE);
-            // cv::Rodrigues(r, R_org_to_cur);
+            if(pts4d_in_org.cols > 10)
+            {
+                cv::Mat pts3d_in_org = pts4d_in_org(cv::Rect(0, 0, pts4d_in_org.cols, 3));
+                cv::Mat r, t;
+                std::vector<uchar> is_inliers;
+                cv::Mat cur_pts2d_raw_mat(cur_pts2d_raw.size(), 2, CV_32FC1, cur_pts2d_raw.data());
+                cv::Mat pts3d_in_org_T = pts3d_in_org.t();
+                printf("%d %d\n", pts3d_in_org_T.cols, cur_pts2d_raw_mat.cols);
+                cv::solvePnPRansac(pts3d_in_org_T, cur_pts2d_raw_mat, kCamMat, kDistCoeffs, r, t_org_to_cur_in_org, false, 20, 5.0, 0.99, is_inliers, cv::SOLVEPNP_ITERATIVE);
+                pts2d_want_reordering_ptrs = std::vector<std::vector<cv::Point2f>*>
+                {&ref_info_ptr->pts2d_raw, &ref_info_ptr->pts2d, &cur_pts2d_raw};
+                pts4d_want_reordering_ptrs = std::vector<cv::Mat*>{&pts4d_in_org};
+                RmOutliersForPts(is_inliers, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
+                cv::Rodrigues(r, R_org_to_cur);
 
-            // SendPose();
-            // DrawInitOF(time_now, std::vector<uchar>(), img_color, cur_pts2d_raw);
-            output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts3d_in_org.clone()));
-            printf("is ok??\n");
+                R_org_to_cur = R_org_to_cur.t();
+                t_org_to_cur_in_org = -R_org_to_cur*t_org_to_cur_in_org;
+
+                SendPose();
+                DrawInitOF(time_now, std::vector<uchar>(), img_color, cur_pts2d_raw);
+                output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts3d_in_org.clone()));
+            }
 
 
             is_initialized = false;
