@@ -66,7 +66,15 @@ namespace shslam
 
         void RmOutliersForPts
         (
-            const std::vector<uchar>& is_pts2d_passed_test, 
+            const std::vector<uchar>& is_inliers, 
+            const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
+            const std::vector<cv::Mat*>& mat_pts_ptrs,
+            int32_t& interest_idx
+        );
+
+        void RmOutliersForPts
+        (
+            const std::vector<uchar>& is_inliers, 
             const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
             const std::vector<cv::Mat*>& mat_pts_ptrs
         );
@@ -113,7 +121,9 @@ namespace shslam
         cv::Matx31d t_org_to_cur_in_org;
         cv::Mat pts4d_in_org;
 
-
+        // cv::Mat img_prev;
+        // uint64_t time_prev;
+        // std::vector<cv::Point2f> prev_pts2d_raw;
     
     };
 

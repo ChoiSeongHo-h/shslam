@@ -175,6 +175,7 @@ namespace shslam
 
             //--------------------------------------------------------
 
+            //ref_info_ptr->GetPts2d(time_prev, img_prev, kCamMat, kDistCoeffs);
             std::vector<cv::Point2f> cur_pts2d;
             cv::Mat img, img_color;
             uint64_t time_now = input_img_buf_ptr->front().first;
@@ -197,7 +198,7 @@ namespace shslam
             );
 
             std::vector<std::vector<cv::Point2f>*> pts2d_want_reordering_ptrs
-            {&ref_info_ptr->pts2d_raw, &ref_info_ptr->pts2d, &cur_pts2d_raw};
+            {&ref_info_ptr->pts2d_raw, &cur_pts2d_raw};
             std::vector<cv::Mat*> pts4d_want_reordering_ptrs{&pts4d_in_org};
             RmOutliersForPts(is_pts2d_passed_OF, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
             if(pts4d_in_org.cols > 10)
@@ -210,7 +211,7 @@ namespace shslam
                 printf("%d %d\n", pts3d_in_org_T.cols, cur_pts2d_raw_mat.cols);
                 cv::solvePnPRansac(pts3d_in_org_T, cur_pts2d_raw_mat, kCamMat, kDistCoeffs, r, t_org_to_cur_in_org, false, 20, 5.0, 0.99, is_inliers, cv::SOLVEPNP_ITERATIVE);
                 pts2d_want_reordering_ptrs = std::vector<std::vector<cv::Point2f>*>
-                {&ref_info_ptr->pts2d_raw, &ref_info_ptr->pts2d, &cur_pts2d_raw};
+                {&ref_info_ptr->pts2d_raw, &cur_pts2d_raw};
                 pts4d_want_reordering_ptrs = std::vector<cv::Mat*>{&pts4d_in_org};
                 RmOutliersForPts(is_inliers, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
                 cv::Rodrigues(r, R_org_to_cur);
@@ -219,8 +220,12 @@ namespace shslam
                 t_org_to_cur_in_org = -R_org_to_cur*t_org_to_cur_in_org;
 
                 SendPose();
+
+
+                
                 DrawInitOF(time_now, std::vector<uchar>(), img_color, cur_pts2d_raw);
                 output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts3d_in_org.clone()));
+
             }
 
 
@@ -290,6 +295,9 @@ namespace shslam
             DrawInitOF(time_now, is_inliers, img_color, cur_pts2d_raw);
 
         is_received_init_pose = true;
+        ref_info_ptr->img = std::move(img);
+        ref_info_ptr->time = time_now;
+        ref_info_ptr->pts2d_raw = std::move(cur_pts2d_raw);
     }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::TrackCurrnetPts2d
@@ -338,15 +346,34 @@ namespace shslam
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RmOutliersForPts
     (
-        const std::vector<uchar>& is_pts2d_passed_test, 
-        const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
+        const std::vector<uchar> &is_inliers, 
+        const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs, 
         const std::vector<cv::Mat*>& mat_pts_ptrs
     )
     {
+        int32_t interest_idx = -1;
+        SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RmOutliersForPts
+        (is_inliers, vec_pts_ptrs, mat_pts_ptrs, interest_idx);
+    }
+    
+    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RmOutliersForPts
+    (
+        const std::vector<uchar>& is_inliers, 
+        const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
+        const std::vector<cv::Mat*>& mat_pts_ptrs,
+        int32_t& interest_idx
+    )
+    {
         auto num_test_passed = 0;
-        for(auto idx = 0; idx<is_pts2d_passed_test.size(); ++idx)
+        for(auto idx = 0; idx<is_inliers.size(); ++idx)
         {
-            if(is_pts2d_passed_test[idx] == 0)
+            if(idx == interest_idx)
+            {
+                interest_idx = is_inliers[idx] ? num_test_passed : num_test_passed-1;
+                interest_idx = std::max(interest_idx, 0);
+            }
+
+            if(is_inliers[idx] == 0)
                 continue;
 
             for(auto& vec_pts_ptr : vec_pts_ptrs)
