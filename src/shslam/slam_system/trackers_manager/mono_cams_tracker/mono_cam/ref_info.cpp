@@ -36,6 +36,10 @@ namespace shslam
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RefInfo::Clear()
     {
+        pts2d_raw.clear();
+        pts2d.clear();
+        pts2d_raw.reserve(kMaxPts2d);
+        pts2d.reserve(kMaxPts2d);
         time = -1;
     }
 
@@ -47,13 +51,21 @@ namespace shslam
         const cv::Matx<double, 1, 5>& kDistCoeffs
     )
     {
-        goodFeaturesToTrack(img, pts2d_raw, kMaxPts2d, kRejectionRatio, kMinPts2dGap);
-        if(pts2d_raw.size() < kMinRefPts2d)
+        auto num_want_extra_pts2d = kMaxPts2d - pts2d_raw.size();
+        std::vector<cv::Point2f> pts2d_raw_added;
+        goodFeaturesToTrack(img, pts2d_raw_added, num_want_extra_pts2d, kRejectionRatio, kMinPts2dGap);
+        auto num_all_pts2d = pts2d_raw.size() + pts2d_raw_added.size();
+        if(num_all_pts2d < kMinRefPts2d)
             return;
-            
+        
+        pts2d_raw.insert(pts2d_raw.end(), pts2d_raw_added.begin(), pts2d_raw_added.end() );
+
+        std::vector<cv::Point2f> pts2d_added;
+        cv::undistortPoints(pts2d_raw_added, pts2d_added, kCamMat, kDistCoeffs);
+        pts2d.insert(pts2d.end(), pts2d_added.begin(), pts2d_added.end());
+
         time = time_now;
         this->img = std::move(img);
-        cv::undistortPoints(pts2d_raw, pts2d, kCamMat, kDistCoeffs);
     }
 
 }
