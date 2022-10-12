@@ -68,14 +68,6 @@ namespace shslam
         (
             const std::vector<uchar>& is_inliers, 
             const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
-            const std::vector<cv::Mat*>& mat_pts_ptrs,
-            int32_t& interest_idx
-        );
-
-        void RmOutliersForPts
-        (
-            const std::vector<uchar>& is_inliers, 
-            const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
             const std::vector<cv::Mat*>& mat_pts_ptrs
         );
 

@@ -182,6 +182,9 @@ namespace shslam
             ResizeImg(input_img_buf_ptr->front(), img, img_color);
             input_img_buf_ptr->pop();
 
+            ref_info_ptr->GetPts2d(ref_info_ptr->time, ref_info_ptr->img, kCamMat, kDistCoeffs);
+            //return;
+
             std::vector<cv::Point2f> cur_pts2d_raw;
             std::vector<uchar> is_pts2d_passed_OF;
             std::vector<float> err;
@@ -201,19 +204,44 @@ namespace shslam
             {&ref_info_ptr->pts2d_raw, &cur_pts2d_raw};
             std::vector<cv::Mat*> pts4d_want_reordering_ptrs{&pts4d_in_org};
             RmOutliersForPts(is_pts2d_passed_OF, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
+            printf("pass rm 1\n");
             if(pts4d_in_org.cols > 10)
             {
                 cv::Mat pts3d_in_org = pts4d_in_org(cv::Rect(0, 0, pts4d_in_org.cols, 3));
                 cv::Mat r, t;
-                std::vector<uchar> is_inliers;
+                std::vector<uint32_t> inlier_indices;
+                //std::cout<<cur_pts2d_raw<<std::endl;
+                
                 cv::Mat cur_pts2d_raw_mat(cur_pts2d_raw.size(), 2, CV_32FC1, cur_pts2d_raw.data());
+                //std::cout<<cur_pts2d_raw_mat<<std::endl;
                 cv::Mat pts3d_in_org_T = pts3d_in_org.t();
-                printf("%d %d\n", pts3d_in_org_T.cols, cur_pts2d_raw_mat.cols);
-                cv::solvePnPRansac(pts3d_in_org_T, cur_pts2d_raw_mat, kCamMat, kDistCoeffs, r, t_org_to_cur_in_org, false, 20, 5.0, 0.99, is_inliers, cv::SOLVEPNP_ITERATIVE);
+                std::cout<<pts3d_in_org_T.size()<<std::endl;
+                std::cout<<cur_pts2d_raw_mat(cv::Rect(0, 0, 2, pts3d_in_org_T.rows)).size()<<std::endl;
+                cv::solvePnPRansac
+                (
+                    pts3d_in_org_T, 
+                    cur_pts2d_raw_mat(cv::Rect(0, 0, 2, pts3d_in_org_T.rows)), 
+                    kCamMat, 
+                    kDistCoeffs, 
+                    r, 
+                    t_org_to_cur_in_org, 
+                    false, 
+                    20, 
+                    5.0, 
+                    0.99, 
+                    inlier_indices, 
+                    cv::SOLVEPNP_ITERATIVE
+                );
+                std::vector<uchar> is_inlier(pts3d_in_org_T.rows, 0);
+                for(auto idx_idx : inlier_indices)
+                    is_inlier[idx_idx] = 1;
+
+                printf("\npass pnp %d %d\n", inlier_indices.size(), pts3d_in_org_T.rows);
                 pts2d_want_reordering_ptrs = std::vector<std::vector<cv::Point2f>*>
                 {&ref_info_ptr->pts2d_raw, &cur_pts2d_raw};
                 pts4d_want_reordering_ptrs = std::vector<cv::Mat*>{&pts4d_in_org};
-                RmOutliersForPts(is_inliers, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
+                RmOutliersForPts(is_inlier, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
+                printf("pass rm 2\n");
                 cv::Rodrigues(r, R_org_to_cur);
 
                 R_org_to_cur = R_org_to_cur.t();
@@ -351,28 +379,16 @@ namespace shslam
         const std::vector<cv::Mat*>& mat_pts_ptrs
     )
     {
-        int32_t interest_idx = -1;
-        SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RmOutliersForPts
-        (is_inliers, vec_pts_ptrs, mat_pts_ptrs, interest_idx);
-    }
-    
-    void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::RmOutliersForPts
-    (
-        const std::vector<uchar>& is_inliers, 
-        const std::vector<std::vector<cv::Point2f>*>& vec_pts_ptrs,
-        const std::vector<cv::Mat*>& mat_pts_ptrs,
-        int32_t& interest_idx
-    )
-    {
+        if(!mat_pts_ptrs.empty())
+            printf("%d %d %d\n", is_inliers.size(), vec_pts_ptrs[0]->size(), mat_pts_ptrs[0]->cols);
         auto num_test_passed = 0;
+        auto test_sz = is_inliers.size();
+        auto mat_roi_w = 0;
+        if(!mat_pts_ptrs.empty())
+            mat_roi_w = std::accumulate(is_inliers.begin(), is_inliers.begin() + mat_pts_ptrs[0]->cols, 0);
+
         for(auto idx = 0; idx<is_inliers.size(); ++idx)
         {
-            if(idx == interest_idx)
-            {
-                interest_idx = is_inliers[idx] ? num_test_passed : num_test_passed-1;
-                interest_idx = std::max(interest_idx, 0);
-            }
-
             if(is_inliers[idx] == 0)
                 continue;
 
@@ -381,17 +397,33 @@ namespace shslam
 
             for(auto& mat_pts_ptr : mat_pts_ptrs)
             {
+                if(idx >= mat_pts_ptr->cols)
+                    continue;
+
                 for(auto row = 0; row < mat_pts_ptr->rows; ++row)
                     mat_pts_ptr->at<float>(row, num_test_passed) = mat_pts_ptr->at<float>(row, idx);
             }
             
             ++num_test_passed;
         }
+
         for(auto& vec_pts_ptr : vec_pts_ptrs)
-            vec_pts_ptr->resize(num_test_passed);
+        {
+            if(is_inliers.size() < vec_pts_ptr->size())
+            {
+                vec_pts_ptr->insert(vec_pts_ptr->begin()+num_test_passed, vec_pts_ptr->begin()+is_inliers.size(), vec_pts_ptr->end());
+                vec_pts_ptr->resize(num_test_passed + vec_pts_ptr->size()-is_inliers.size());
+            }
+            else
+                vec_pts_ptr->resize(num_test_passed);
+        }
 
         for(auto& mat_pts_ptr : mat_pts_ptrs)
-            *mat_pts_ptr = (*mat_pts_ptr)(cv::Rect(0, 0, num_test_passed, mat_pts_ptr->rows));
+        {
+            std::cout<<mat_pts_ptr->size()<<std::endl;
+            printf("%d \n", mat_roi_w);
+            *mat_pts_ptr = (*mat_pts_ptr)(cv::Rect(0, 0, mat_roi_w, mat_pts_ptr->rows));
+        }
     }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::CalcE
