@@ -20,42 +20,46 @@ void CallbackImg1(const sensor_msgs::CompressedImageConstPtr& msg)
     input_buffers_ptr->mono_imgs[1].emplace(std::make_pair(now, img1));
 }
 
-void Visualize()
+void VisualizeMonoCam0Img()
 {  
     while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-        if(!output_buffers_ptr->mono_imgs[0].empty())
+        if(output_buffers_ptr->mono_imgs[0].empty())
         {
-            sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", output_buffers_ptr->mono_imgs[0].front().second).toImageMsg();
-            img0_pub.publish(msg);
-            output_buffers_ptr->mono_imgs[0].pop();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
         }
-        if(!output_buffers_ptr->mono_imgs[1].empty())
-        {
-            sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", output_buffers_ptr->mono_imgs[1].front().second).toImageMsg();
-            img1_pub.publish(msg);
-            output_buffers_ptr->mono_imgs[1].pop();
-        }
-        if(!output_buffers_ptr->monocam_pcs[0].empty())
-        {
-            sensor_msgs::PointCloud msg;
-            msg.header = std_msgs::Header();
-            msg.header.frame_id = std::string("world");
-            msg.points.resize(output_buffers_ptr->monocam_pcs[0].front().second.cols);
-            for(auto n = 0; n<msg.points.size(); ++n)
-            {
-                msg.points[n].x = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(0, n);
-                msg.points[n].y = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(1, n);
-                msg.points[n].z = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(2, n);
-            }
-            pc0_pub.publish(msg);
 
-            output_buffers_ptr->monocam_pcs[0].pop();
-        }
-        
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", output_buffers_ptr->mono_imgs[0].front().second).toImageMsg();
+        img0_pub.publish(msg);
+        output_buffers_ptr->mono_imgs[0].pop();
+    }
+}
 
+void VisualizeMonoCam0Pt3d()
+{  
+    while (true)
+    {
+        if(output_buffers_ptr->monocam_pcs[0].empty())
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+
+
+        sensor_msgs::PointCloud msg;
+        msg.header = std_msgs::Header();
+        msg.header.frame_id = std::string("world");
+        msg.points.resize(output_buffers_ptr->monocam_pcs[0].front().second.cols);
+        for(auto n = 0; n<msg.points.size(); ++n)
+        {
+            msg.points[n].x = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(0, n);
+            msg.points[n].y = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(1, n);
+            msg.points[n].z = output_buffers_ptr->monocam_pcs[0].front().second.at<float>(2, n);
+        }
+        pc0_pub.publish(msg);
+
+        output_buffers_ptr->monocam_pcs[0].pop();
     }
 }
 
@@ -78,10 +82,11 @@ int main(int argc, char **argv)
 
     ::input_buffers_ptr = slam_system.GetInputBuffersPtr();
     ::output_buffers_ptr = slam_system.GetOutputBuffersPtr();
-    std::thread visualization_thread(Visualize);
+    std::thread mono_cam_img_viz_thread(VisualizeMonoCam0Img);
+    std::thread mono_cam_pt3d_viz_thread(VisualizeMonoCam0Pt3d);
 
     auto subscriber_cam0 = node_handle.subscribe("/camera_array/cam0/image_raw/compressed", 10, CallbackImg0);
-    auto subscriber_cam1 = node_handle.subscribe("/camera_array/cam1/image_raw/compressed", 10, CallbackImg1);
+    //auto subscriber_cam1 = node_handle.subscribe("/camera_array/cam1/image_raw/compressed", 10, CallbackImg1);
     ros::spin();
 
     system_thread.join();

@@ -176,12 +176,13 @@ namespace shslam
             //--------------------------------------------------------
 
             //ref_info_ptr->GetPts2d(time_prev, img_prev, kCamMat, kDistCoeffs);
-            std::vector<cv::Point2f> cur_pts2d;
             cv::Mat img, img_color;
             uint64_t time_now = input_img_buf_ptr->front().first;
             ResizeImg(input_img_buf_ptr->front(), img, img_color);
             input_img_buf_ptr->pop();
 
+            //std::cout<<ref_info_ptr->pts2d_raw<<std::endl;
+            printf("szs %d %d\n", ref_info_ptr->pts2d.size(), ref_info_ptr->pts2d_raw.size());
             ref_info_ptr->GetPts2d(ref_info_ptr->time, ref_info_ptr->img, kCamMat, kDistCoeffs);
             //return;
 
@@ -205,11 +206,11 @@ namespace shslam
             std::vector<cv::Mat*> pts4d_want_reordering_ptrs{&pts4d_in_org};
             RmOutliersForPts(is_pts2d_passed_OF, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
             printf("pass rm 1\n");
-            if(pts4d_in_org.cols > 10)
+            if(pts4d_in_org.cols > 15)
             {
                 cv::Mat pts3d_in_org = pts4d_in_org(cv::Rect(0, 0, pts4d_in_org.cols, 3));
-                cv::Mat r, t;
-                std::vector<uint32_t> inlier_indices;
+                cv::Mat r_vec, t;
+                std::vector<uchar> inlier_indices;
                 //std::cout<<cur_pts2d_raw<<std::endl;
                 
                 cv::Mat cur_pts2d_raw_mat(cur_pts2d_raw.size(), 2, CV_32FC1, cur_pts2d_raw.data());
@@ -217,17 +218,18 @@ namespace shslam
                 cv::Mat pts3d_in_org_T = pts3d_in_org.t();
                 std::cout<<pts3d_in_org_T.size()<<std::endl;
                 std::cout<<cur_pts2d_raw_mat(cv::Rect(0, 0, 2, pts3d_in_org_T.rows)).size()<<std::endl;
+                cv::Matx31d t_cur_to_org_in_cur;
                 cv::solvePnPRansac
                 (
                     pts3d_in_org_T, 
                     cur_pts2d_raw_mat(cv::Rect(0, 0, 2, pts3d_in_org_T.rows)), 
                     kCamMat, 
                     kDistCoeffs, 
-                    r, 
-                    t_org_to_cur_in_org, 
+                    r_vec, 
+                    t_cur_to_org_in_cur, 
                     false, 
                     20, 
-                    5.0, 
+                    3.0, 
                     0.99, 
                     inlier_indices, 
                     cv::SOLVEPNP_ITERATIVE
@@ -240,25 +242,79 @@ namespace shslam
                 pts2d_want_reordering_ptrs = std::vector<std::vector<cv::Point2f>*>
                 {&ref_info_ptr->pts2d_raw, &cur_pts2d_raw};
                 pts4d_want_reordering_ptrs = std::vector<cv::Mat*>{&pts4d_in_org};
+                printf("-1 raw: ref_pt2d %d, cur_pt2d %d, pt3d %d\n", ref_info_ptr->pts2d_raw.size(), cur_pts2d_raw.size(), pts3d_in_org.cols);
                 RmOutliersForPts(is_inlier, pts2d_want_reordering_ptrs, pts4d_want_reordering_ptrs);
                 printf("pass rm 2\n");
-                cv::Rodrigues(r, R_org_to_cur);
+                printf("0 raw: ref_pt2d %d, cur_pt2d %d, pt3d %d\n", ref_info_ptr->pts2d_raw.size(), cur_pts2d_raw.size(), pts3d_in_org.cols);
+                cv::Matx33d R_cur_to_org;
+                cv::Rodrigues(r_vec, R_cur_to_org);
 
-                R_org_to_cur = R_org_to_cur.t();
-                t_org_to_cur_in_org = -R_org_to_cur*t_org_to_cur_in_org;
+                cv::Matx33d R_org_to_ref = R_org_to_cur;
+                R_org_to_cur = R_cur_to_org.t();
+                cv::Matx31d t_org_to_ref_in_org = t_org_to_cur_in_org;
+                t_org_to_cur_in_org = -R_org_to_cur*t_cur_to_org_in_cur;
 
                 SendPose();
-
-
-                
                 DrawInitOF(time_now, std::vector<uchar>(), img_color, cur_pts2d_raw);
-                output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts3d_in_org.clone()));
 
+
+
+                cv::Matx34d Rt_cur_to_cur
+                (
+                    1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0
+                );
+                cv::Matx33d R_ref_to_cur = R_org_to_ref.t()*R_org_to_cur;
+                cv::Matx31d t_ref_to_cur_in_ref = R_org_to_ref.t()*(t_org_to_cur_in_org-t_org_to_ref_in_org);
+                cv::Matx34d Rt_ref_to_cur;
+                cv::hconcat(R_ref_to_cur, t_ref_to_cur_in_ref, Rt_ref_to_cur);
+
+
+                cv::Mat pts4d_in_cur;
+
+                //ref to ref & cur to ref & ref & cur => in ref
+                //cur to cur & ref to cur & cur & ref => in cur
+                std::vector<cv::Point2f> cur_pts2d;
+                printf("1 raw : ref_pt2d %d, cur_pt2d %d, pt3d %d\n", ref_info_ptr->pts2d_raw.size(), cur_pts2d_raw.size(), pts3d_in_org.cols);
+                cv::undistortPoints(ref_info_ptr->pts2d_raw, ref_info_ptr->pts2d, kCamMat, kDistCoeffs);
+                cv::undistortPoints(cur_pts2d_raw, cur_pts2d, kCamMat, kDistCoeffs);
+                printf("before tri %d %d\n", cur_pts2d.size(), ref_info_ptr->pts2d.size());
+                cv::triangulatePoints(Rt_cur_to_cur, Rt_ref_to_cur, cur_pts2d, ref_info_ptr->pts2d, pts4d_in_cur);
+                cv::Mat pts_scales = pts4d_in_cur(cv::Rect(0, 3, pts4d_in_cur.cols, 1));
+                for(auto row = 0; row<3; ++row)
+                {
+                    auto pts_element = pts4d_in_cur(cv::Rect(0, row, pts4d_in_cur.cols, 1));
+                    cv::divide(pts_element, pts_scales, pts_element);
+                }
+                pts_scales = cv::Mat::ones(pts_scales.rows, pts_scales.cols, pts_scales.type());
+
+                cv::Matx44f T_org_to_cur;
+                cv::Mat R_org_to_cur_float(R_org_to_cur);
+                R_org_to_cur_float.convertTo(R_org_to_cur_float, CV_32FC1);
+                cv::Mat t_org_to_cur_in_org_float(t_org_to_cur_in_org);
+                t_org_to_cur_in_org_float.convertTo(t_org_to_cur_in_org_float, CV_32FC1);
+                cv::Matx34f Rt_org_to_cur;
+                cv::hconcat(R_org_to_cur_float, t_org_to_cur_in_org_float, Rt_org_to_cur);
+                cv::Matx14f T_4th_row{0.0, 0.0, 0.0, 1.0};
+                cv::vconcat(Rt_org_to_cur, T_4th_row, T_org_to_cur);
+                pts4d_in_org = T_org_to_cur*pts4d_in_cur;
+                pts3d_in_org = pts4d_in_org(cv::Rect(0, 0, pts4d_in_org.cols, 3));
+
+                output_pc_buf_ptr->emplace(std::make_pair(ros::Time::now().toNSec(), pts3d_in_org.clone()));
+                printf("2 : ref_pt2d %d, cur_pt2d %d, pt3d %d\n", ref_info_ptr->pts2d.size(), cur_pts2d.size(), pts3d_in_org.cols);
+
+                //-----------------------------
+
+                ref_info_ptr->img = std::move(img);
+                ref_info_ptr->time = time_now;
+                ref_info_ptr->pts2d_raw = std::vector<cv::Point2f>(cur_pts2d_raw);
+                ref_info_ptr->pts2d = std::move(cur_pts2d);
             }
 
 
-            is_initialized = false;
-            ref_info_ptr->Clear();
+            //is_initialized = false;
+            //ref_info_ptr->Clear();
         }
     }
 
@@ -323,9 +379,9 @@ namespace shslam
             DrawInitOF(time_now, is_inliers, img_color, cur_pts2d_raw);
 
         is_received_init_pose = true;
-        ref_info_ptr->img = std::move(img);
+        ref_info_ptr->img = cv::Mat(img);
         ref_info_ptr->time = time_now;
-        ref_info_ptr->pts2d_raw = std::move(cur_pts2d_raw);
+        ref_info_ptr->pts2d_raw = std::vector<cv::Point2f>(cur_pts2d_raw);
     }
 
     void SlamSystem::TrackersManager::MonoCamsTracker::MonoCam::TrackCurrnetPts2d
@@ -411,8 +467,12 @@ namespace shslam
         {
             if(is_inliers.size() < vec_pts_ptr->size())
             {
-                vec_pts_ptr->insert(vec_pts_ptr->begin()+num_test_passed, vec_pts_ptr->begin()+is_inliers.size(), vec_pts_ptr->end());
+                printf("before : %d\n", vec_pts_ptr->size());
+                printf("num_test_passed : %d\n", num_test_passed);
+                for(int tail_idx = is_inliers.size(); tail_idx < vec_pts_ptr->size(); ++tail_idx)
+                    (*vec_pts_ptr)[num_test_passed] = (*vec_pts_ptr)[tail_idx];
                 vec_pts_ptr->resize(num_test_passed + vec_pts_ptr->size()-is_inliers.size());
+                printf("after : %d\n", vec_pts_ptr->size());
             }
             else
                 vec_pts_ptr->resize(num_test_passed);

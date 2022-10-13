@@ -51,7 +51,11 @@ namespace shslam
         const cv::Matx<double, 1, 5>& kDistCoeffs
     )
     {
-        auto num_want_extra_pts2d = kMaxPts2d - pts2d_raw.size();
+        auto num_want_extra_pts2d = kMaxPts2d - int(pts2d_raw.size());
+        if(num_want_extra_pts2d < 0)
+            return;
+
+        printf("next adding pts : %d\n", num_want_extra_pts2d);
         std::vector<cv::Point2f> pts2d_raw_added;
         goodFeaturesToTrack(img, pts2d_raw_added, num_want_extra_pts2d, kRejectionRatio, kMinPts2dGap);
         auto num_all_pts2d = pts2d_raw.size() + pts2d_raw_added.size();
@@ -59,6 +63,7 @@ namespace shslam
             return;
         
         pts2d_raw.insert(pts2d_raw.end(), pts2d_raw_added.begin(), pts2d_raw_added.end() );
+        printf("after adding pts : %d\n", pts2d_raw.size());
 
         std::vector<cv::Point2f> pts2d_added;
         cv::undistortPoints(pts2d_raw_added, pts2d_added, kCamMat, kDistCoeffs);
